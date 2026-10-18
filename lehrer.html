@@ -332,7 +332,7 @@ function renderResults() {
   const empty = '<td colspan="' + (SLOTS.length + 5) + '" class="muted">noch kein Testergebnis</td>';
   const cell = g => g === 2 ? '<td class="g2">✓</td>' : g === 1 ? '<td class="g1">½</td>' : '<td class="g0">✗</td>';
   $('resTable').innerHTML = `<thead><tr><th rowspan="2">Nr.</th><th colspan="${SLOTS.length + 5}">Test</th><th colspan="6">Übung</th></tr>
-    <tr><th>Punkte</th><th>Note</th>${SLOTS.map((s, i) => `<th title="${esc(s.name)}">${i + 1}</th>`).join('')}<th>verl.</th><th>Min.</th><th>Quelle</th>
+    <tr><th>Punkte</th><th>Note</th>${SLOTS.map((s, i) => `<th title="${esc(s.area + ' · ' + s.name)}">${i + 1}</th>`).join('')}<th>verl.</th><th>Min.</th><th>Quelle</th>
     <th title="komplette Probetests">Runden</th><th title="Fünfer-Übungen zu einem Thema">Themen</th><th title="beim 1. Versuch richtig">%</th><th>Tage</th><th>Min.</th><th>zuletzt</th></tr></thead>
     <tbody>${nrs.map(nr => { const r = t.results[nr]; return `<tr class="${r && r.answers ? 'click' : ''}" data-nr="${nr}"><td><b>${nr}</b></td>${r ? `<td><b>${fmtPts(r.pts)}</b></td><td><b>${fmtNote(noteFor(r.pts))}</b></td>
       ${r.grades.map(cell).join('')}<td style="${r.tabs ? 'color:var(--bad);font-weight:700' : ''}">${r.tabs ? r.tabs + '×' : '–'}</td><td>${r.minutes ?? '–'}</td><td>${r.src}</td>` : empty}${pcell(nr)}</tr>`; }).join('')}
@@ -344,7 +344,7 @@ function showDetail(nr) {
   const tasks = testTasks(t.code, nr);
   const sym = g => g === 2 ? '<span class="g2">✓ 1 P.</span>' : g === 1 ? '<span class="g1">½ P.</span>' : '<span class="g0">✗ 0 P.</span>';
   $('detail').innerHTML = `<div class="row"><h2 style="margin:0">Nr. ${nr} · ${fmtPts(r.pts)}/${SLOTS.length} Punkte · Note ${fmtNote(noteFor(r.pts))}</h2><span style="flex:1"></span><button id="dClose">Schließen</button></div>
-    ${tasks.map((x, i) => `<div class="item"><div class="qtitle">Aufgabe ${i + 1} · ${SLOTS[i].name} · ${sym(r.grades[i])}</div>
+    ${tasks.map((x, i) => `<div class="item"><div class="qtitle">Aufgabe ${i + 1} · ${SLOTS[i].area} · Ich kann ${x.can} · ${sym(r.grades[i])}</div>
       <div class="q">${x.q}</div>
       <div>Antwort: <b>${answerText(x, r.answers[i])}</b> &nbsp;·&nbsp; richtig: <b>${correctText(x)}</b></div>
       <ol class="sol muted">${x.sol.map(s => `<li>${s}</li>`).join('')}</ol></div>`).join('')}`;

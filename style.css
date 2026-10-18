@@ -157,3 +157,11 @@ details.card summary{cursor:pointer}
   .gradelist td:nth-child(2){width:14em}
   .gradelist{break-before:auto}
 }
+.tarea{grid-column:1/-1;font-weight:700;color:#1f4e79;margin-top:6px;font-size:.92rem}
+.rreport{text-align:left;margin:8px 0}
+.rarea{border:1px solid var(--line);border-radius:10px;padding:6px 12px;margin:6px 0;background:#fff}
+.rhead{font-weight:700;color:#1f4e79;font-size:.92rem;margin-bottom:2px}
+.rrow{display:flex;gap:8px;align-items:baseline;padding:2px 0}
+.rrow .txt{flex:1}
+.rrow .sy{flex:0 0 1.2em}
+button.mini{padding:.15rem .6rem;font-size:.85rem}

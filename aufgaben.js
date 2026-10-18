@@ -564,27 +564,58 @@ const MIT_TR = new Set(['exponent', 'groesstePotenz', 'quadratFlaeche', 'wuerfel
 
 /* ---------- Die 12 Aufgabenplätze (je einer pro Kompetenz aus dem Kompetenzraster) ----------
    Reihenfolge NICHT ändern, solange Ergebnisse aus laufenden Tests eingesammelt werden. */
+/* area = Abschnitt im Kompetenzraster, name = Themenname für „Gezielt üben“.
+   Die „Ich kann …“-Sätze stehen in RASTER und müssen WORTGLEICH im Kompetenzraster stehen. */
 const SLOTS = [
-  { name: 'Produkte als Potenz schreiben', gens: ['produktPotenz', 'exponent'] },
-  { name: 'Potenzwerte berechnen', gens: ['potenzwert', 'minusFalle'] },
-  { name: 'Zehnerpotenzen ausschreiben', gens: ['sciZuruck'] },
-  { name: 'Wissenschaftliche und technische Schreibweise', gens: ['sciVoll', 'technisch'] },
-  { name: 'Taschenrechneranzeige lesen', gens: ['trAnzeige'] },
-  { name: 'Quadratwurzeln bestimmen', gens: ['wurzelGanz', 'wurzelDez'] },
-  { name: 'Seitenlängen über Wurzeln', gens: ['quadratFlaeche', 'wuerfelOberflaeche'] },
-  { name: 'Wurzeln näherungsweise bestimmen', gens: ['einschachteln'] },
-  { name: 'Wurzeln multiplizieren und dividieren', gens: ['wurzelProdukt', 'wurzelQuotient'] },
-  { name: 'Teilweise Wurzel ziehen', gens: ['teilweise'] },
-  { name: 'Wurzelterme zusammenfassen', gens: ['zusammenfassen'] },
-  { name: 'Kubikwurzeln und n-te Wurzeln', gens: ['kubikwurzel', 'nteWurzel', 'wuerfelVolumen'] }
+  { area: 'S. 10–11 Potenzen', name: 'Potenzschreibweise', gens: ['produktPotenz', 'exponent'] },
+  { area: 'S. 10–11 Potenzen', name: 'Potenzwerte berechnen', gens: ['potenzwert', 'minusFalle'] },
+  { area: 'S. 12–13 Zehnerpotenzen', name: 'Zehnerpotenzen ausschreiben', gens: ['sciZuruck'] },
+  { area: 'S. 12–13 Zehnerpotenzen', name: 'Wissenschaftliche und technische Schreibweise', gens: ['sciVoll', 'technisch'] },
+  { area: 'S. 12–13 Zehnerpotenzen', name: 'Taschenrechneranzeige', gens: ['trAnzeige'] },
+  { area: 'S. 14–15 Quadratwurzeln', name: 'Quadratwurzeln bestimmen', gens: ['wurzelGanz', 'wurzelDez'] },
+  { area: 'S. 14–15 Quadratwurzeln', name: 'Seiten- und Kantenlängen', gens: ['quadratFlaeche', 'wuerfelOberflaeche'] },
+  { area: 'S. 16–17 Bestimmen von Quadratwurzeln', name: 'Wurzeln näherungsweise bestimmen', gens: ['einschachteln'] },
+  { area: 'S. 20–21 Wurzeln multiplizieren und dividieren', name: 'Wurzeln multiplizieren und dividieren', gens: ['wurzelProdukt', 'wurzelQuotient'] },
+  { area: 'S. 22–23 Rechnen mit Quadratwurzeln (a)', name: 'Teilweise Wurzel ziehen', gens: ['teilweise'] },
+  { area: 'S. 22–23 Rechnen mit Quadratwurzeln (b)', name: 'Wurzelterme zusammenfassen', gens: ['zusammenfassen'] },
+  { area: 'S. 24–25 Kubikwurzeln und n-te Wurzeln', name: 'Kubikwurzeln und n-te Wurzeln', gens: ['kubikwurzel', 'nteWurzel', 'wuerfelVolumen'] }
 ];
+const RASTER = {
+  produktPotenz: 'Produkte als Potenz angeben und berechnen.',
+  exponent: 'Zahlen in der Potenzschreibweise angeben.',
+  potenzwert: 'Potenzwerte berechnen.', minusFalle: 'Potenzwerte berechnen.',
+  sciZuruck: 'Zahlen ohne Potenzen angeben.',
+  sciVoll: 'Zahlen in technischer und wissenschaftlicher Schreibweise angeben.', technisch: 'Zahlen in technischer und wissenschaftlicher Schreibweise angeben.',
+  trAnzeige: 'die Taschenrechneranzeige interpretieren.',
+  wurzelGanz: 'Quadratwurzeln bestimmen.', wurzelDez: 'Quadratwurzeln bestimmen.',
+  quadratFlaeche: 'Seiten- und Kantenlängen von Quadraten und Würfeln durch Wurzelziehen bestimmen.',
+  wuerfelOberflaeche: 'Seiten- und Kantenlängen von Quadraten und Würfeln durch Wurzelziehen bestimmen.',
+  einschachteln: 'Quadratwurzeln näherungsweise bestimmen.',
+  wurzelProdukt: 'die Rechengesetze für Wurzeln anwenden.', wurzelQuotient: 'die Rechengesetze für Wurzeln anwenden.',
+  teilweise: 'teilweise die Wurzel ziehen.',
+  zusammenfassen: 'Terme durch Ausklammern vereinfachen und zusammenfassen.',
+  kubikwurzel: 'Kubikwurzeln berechnen und vereinfachen.', nteWurzel: 'n-te Wurzeln berechnen.', wuerfelVolumen: 'Berechnungen an Würfeln durchführen.'
+};
 
-function makeTask(gen) { const t = G[gen](); t.gen = gen; t.tr = MIT_TR.has(gen); return t; }
+function makeTask(gen) { const t = G[gen](); t.gen = gen; t.tr = MIT_TR.has(gen); t.can = RASTER[gen]; return t; }
+
+/* Rückmeldung in der Sprache des Kompetenzrasters: nach Abschnitten geordnet, je Aufgabe der „Ich kann …“-Satz */
+function rasterReport(tasks, grades, withButtons = false) {
+  const sym = g => g === 2 ? '<span class="g2">✓</span>' : g === 1 ? '<span class="g1">½</span>' : '<span class="g0">✗</span>';
+  const idx = tasks.map((t, i) => i).sort((a, b) => tasks[a].slot - tasks[b].slot);
+  let html = '', area = '';
+  for (const i of idx) {
+    const t = tasks[i];
+    if (SLOTS[t.slot].area !== area) { if (area) html += '</div>'; area = SLOTS[t.slot].area; html += `<div class="rarea"><div class="rhead">${area}</div>`; }
+    html += `<div class="rrow"><span class="sy">${sym(grades[i])}</span><span class="txt">Ich kann ${t.can}</span>${withButtons && grades[i] !== 2 ? ` <button class="mini" data-i="${t.slot}">üben</button>` : ''}</div>`;
+  }
+  return `<div class="rreport">${html}</div></div>`;
+}
 
 /* Übung: echter Zufall. slotIdx = null → alle 12 Plätze; sonst n Aufgaben eines Platzes */
 function practiceTasks(slotIdx = null, n = 5) {
   rand = Math.random;
-  if (slotIdx === null) return SLOTS.map((s, i) => Object.assign(makeTask(pick(s.gens)), { slot: i }));
+  if (slotIdx === null) return shuffle(SLOTS.map((s, i) => Object.assign(makeTask(pick(s.gens)), { slot: i })));   // Übung gemischt, Test fest
   return Array.from({ length: n }, () => Object.assign(makeTask(pick(SLOTS[slotIdx].gens)), { slot: slotIdx }));
 }
 

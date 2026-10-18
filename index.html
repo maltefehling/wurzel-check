@@ -153,7 +153,8 @@ const readInputs = () => ({ a1: $('a1') ? $('a1').value : '', a2: $('a2') ? $('a
 
 /* ================= STARTSEITE ================= */
 function renderHome() {
-  $('topics').innerHTML = SLOTS.map((s, i) => `<button data-i="${i}"><span class="nr">${i + 1}</span>${s.name}</button>`).join('');
+  let lastArea = '';
+  $('topics').innerHTML = SLOTS.map((s, i) => { const h = s.area !== lastArea ? `<div class="tarea">${s.area}</div>` : ''; lastArea = s.area; return `${h}<button data-i="${i}">${s.name}</button>`; }).join('');
   $('topics').querySelectorAll('button').forEach(b => b.onclick = () => startPractice(+b.dataset.i));
   const act = store.get(ACTIVE), st = act && store.get(tkey(act.code, act.nr));
   $('resumeBox').innerHTML = st && !st.submitted
@@ -211,7 +212,7 @@ function renderPractice() {
   $('pProgress').textContent = `Aufgabe ${P.i + 1} von ${P.tasks.length}`;
   $('pScore').textContent = `✓ beim 1. Versuch: ${P.first.filter(x => x === 2).length}`;
   P.tries = 0; P.done = false; P.a = {}; P.t0 = Date.now();
-  const head = `${P.slot === null ? (t.slot + 1) + ' · ' : ''}${SLOTS[t.slot].name}`;
+  const head = `${SLOTS[t.slot].area} · ${SLOTS[t.slot].name}`;
   $('pCard').innerHTML = taskHtml(t, head, {},
     `<div class="btns">${t.type !== 'mc' ? '<button class="primary" id="pCheck">Prüfen ✓</button>' : ''}<button id="pHint">💡 Tipp</button></div><div id="fb"></div>`);
   wireBegriffe($('pCard'));
@@ -263,9 +264,11 @@ function practiceSummary() {
       <p class="muted"><small>Gewertet wird wie im Test: jeweils dein erster Versuch, ½ Punkt, wenn der Wert stimmt, aber nicht vollständig vereinfacht ist.</small></p>` : `<div class="score">${n} / ${N}</div>`}
     <p>${n === N ? 'Alles beim ersten Versuch richtig – stark! 🎉' : n >= N * 0.75 ? 'Schon richtig gut! Übe die Themen unten noch einmal gezielt.' : 'Übe die Themen unten gezielt – dann gleich noch eine Runde!'}</p>
     </div>
-    ${wrong.length ? `<h2>Noch einmal üben</h2><div class="topics">${[...new Set(wrong.map(([t]) => t.slot))].map(s => `<button data-i="${s}"><span class="nr">${s + 1}</span>${SLOTS[s].name}</button>`).join('')}</div>` : ''}
+    <h2>Dein Stand im Kompetenzraster</h2>
+    <p class="muted" style="margin-top:0">✗ und ½ zeigen dir, welche Zeilen im Kompetenzraster du noch üben solltest – dort stehen auch die passenden Buchaufgaben.</p>
+    ${rasterReport(P.tasks, P.fg, true)}
     <div class="btns" style="margin-top:14px"><button class="primary" id="pAgain">🔁 Neue Runde mit neuen Zahlen</button><button id="pBack">← Startseite</button></div>`;
-  $('pCard').querySelectorAll('.topics button').forEach(b => b.onclick = () => startPractice(+b.dataset.i));
+  $('pCard').querySelectorAll('.rreport button').forEach(b => b.onclick = () => startPractice(+b.dataset.i));
   $('pAgain').onclick = () => startPractice(P.slot);
   $('pBack').onclick = renderHome;
 }
@@ -306,7 +309,7 @@ function renderTest() {
   $('tCount').textContent = `${st.answers.filter(answered).length} von ${SLOTS.length} beantwortet`;
   $('tNav').innerHTML = T.tasks.map((_, i) => `<button class="${answered(st.answers[i]) ? 'done' : ''} ${i === st.cur ? 'cur' : ''}" data-i="${i}" aria-label="Aufgabe ${i + 1}">${i + 1}</button>`).join('');
   $('tNav').querySelectorAll('button').forEach(b => b.onclick = () => { captureCurrent(); st.cur = +b.dataset.i; saveT(); renderTest(); });
-  $('tCard').innerHTML = taskHtml(t, `Aufgabe ${st.cur + 1} · ${SLOTS[t.slot].name}`, st.answers[st.cur],
+  $('tCard').innerHTML = taskHtml(t, `Aufgabe ${st.cur + 1} · ${SLOTS[t.slot].area}`, st.answers[st.cur],
     `<div class="btns">${st.cur > 0 ? '<button id="tPrev">← Zurück</button>' : ''}${st.cur + 1 < SLOTS.length ? '<button class="primary" id="tNext">Weiter →</button>' : '<button class="testbtn" id="tEnd">Fertig → Abgeben</button>'}</div>
      <p class="muted" style="margin-top:10px"><small>Deine Antworten werden automatisch gespeichert. Du kannst jederzeit zu einer Aufgabe zurückspringen.</small></p>`);
   $('tCard').classList.remove('hidden'); $('tConfirm').classList.add('hidden');
@@ -363,7 +366,8 @@ function renderDone() {
     <div class="qrbox">${qrHtml}</div>
     <p class="muted" style="margin:.2rem 0">Falls der Scan nicht klappt, diesen Code ansagen:</p>
     <div class="shortcode">${short}</div>
-    <div class="reslist">${T.tasks.map((t, i) => `<div>${sym(grades[i])} ${i + 1}. ${SLOTS[t.slot].name}</div>`).join('')}</div>
+    <h2 style="margin-top:14px">Dein Stand im Kompetenzraster</h2>
+    ${rasterReport(T.tasks, grades)}
     <p class="muted"><small>½ = Wert richtig, aber nicht vollständig vereinfacht bzw. nicht in der verlangten Schreibweise.</small></p>
     <div class="btns" style="justify-content:center"><button id="dHome">← Startseite</button><button class="danger" id="dWipe">Fertig – Daten von diesem Gerät löschen</button></div>
     <div id="dWipeAsk"></div>`;
