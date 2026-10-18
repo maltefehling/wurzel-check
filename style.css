@@ -116,3 +116,21 @@ table.res td.g2{background:#ecfdf5}table.res td.g1{background:#fffbeb}table.res 
 .detail .item{border-top:1px solid var(--line);padding:10px 0}
 .beamer{position:fixed;inset:0;background:#fff;z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:20px;text-align:center}
 .beamer .bigcode{font-size:clamp(4rem,18vw,14rem)}
+ul.tight{margin:.4rem 0;padding-left:1.2rem}
+ul.tight li{margin:.3rem 0}
+details.card summary{cursor:pointer}
+.nrgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:6px;margin:8px 0}
+.nrgrid span{border:1px solid var(--line);border-radius:8px;text-align:center;padding:4px;font-weight:700;background:#fff}
+.reminder{background:#fff7e6;border:1px solid #f5d59a;border-radius:10px;padding:8px 12px;margin:8px 0}
+#printArea{display:none}
+@media print{
+  body{background:#fff}
+  main>*:not(#printArea){display:none!important}
+  #printArea{display:block}
+  .slips{display:grid;grid-template-columns:repeat(3,1fr);gap:0}
+  .slip{border:1px dashed #999;padding:14px 10px;text-align:center;font-size:12pt;break-inside:avoid}
+  .slip b{display:block;font-size:26pt;letter-spacing:.1em;margin:4px 0}
+  .keylist{border-collapse:collapse;width:100%;font-size:12pt;break-before:page}
+  .keylist td,.keylist th{border:1px solid #999;padding:6px 8px;text-align:left}
+  .keylist td:first-child{width:5em;font-weight:700;text-align:center}
+}

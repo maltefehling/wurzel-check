@@ -14,6 +14,7 @@
   <h1>Wurzel-Check</h1>
   <p class="muted" style="margin-top:0">Hochzahlen und Wurzeln · 12 Aufgaben, eine zu jedem Punkt des Kompetenzrasters</p>
   <div id="resumeBox"></div>
+  <div class="card" id="nrCard"></div>
   <div class="modes">
     <button class="card mode" id="goPractice"><b>🔁 Probetest üben</b>
       Alle 12 Aufgaben wie im Test – jedes Mal mit neuen Zahlen. Du bekommst sofort Rückmeldung, Tipps und den Lösungsweg. So oft du willst.</button>
@@ -25,6 +26,23 @@
     <p class="muted" style="margin:.2rem 0">Fünf Aufgaben zu genau einem Thema:</p>
     <div class="topics" id="topics"></div>
   </div>
+  <details class="card" id="dsBox">
+    <summary><b>🔒 Datenschutz – welche Daten gibt es hier?</b></summary>
+    <ul class="tight">
+      <li><b>Kein Name, kein Konto, kein Server.</b> Du meldest dich nur mit deiner Wurzel-Check-Nummer an. Welche Nummer zu wem gehört, weiß nur deine Lehrkraft.</li>
+      <li><b>Auf deinem Gerät</b> (im Browser) werden gespeichert: deine Nummer, wie oft du geübt hast (Runden, Aufgaben, richtige Antworten, Übungstage, Übungszeit) und im Test deine Antworten.</li>
+      <li><b>Zu deiner Lehrkraft</b> kommen diese Daten nur, wenn du ihr den QR-Code zeigst und sie ihn scannt – direkt von Gerät zu Gerät, ohne Internet.</li>
+      <li><b>Wofür:</b> Bewertung des Tests und ein Überblick, wie viel du geübt hast (z. B. für Elterngespräche).</li>
+      <li><b>Löschen:</b> Nach dem Test kannst du alles mit einem Knopf löschen. Testdaten löschen sich nach 14 Tagen von selbst, Übungsdaten nach 90 Tagen ohne Übung. Deine Lehrkraft löscht ihre Daten, sobald sie sie in ihre Notenverwaltung übertragen hat.</li>
+      <li>Die Seite liegt bei GitHub. Beim Aufrufen speichert GitHub wie jede Webseite deine IP-Adresse, aber keine Antworten oder Ergebnisse.</li>
+    </ul>
+    <div class="btns"><button class="danger" id="wipeAll">Alle Wurzel-Check-Daten von diesem Gerät löschen</button></div>
+  </details>
+</section>
+
+<!-- ============ ÜBUNGSNACHWEIS ============ -->
+<section id="vProof" class="hidden">
+  <div class="card result" id="proofCard"></div>
 </section>
 
 <!-- ============ ÜBUNG ============ -->
@@ -37,9 +55,9 @@
 <section id="vLogin" class="hidden">
   <div class="card">
     <h2>📝 Test schreiben</h2>
-    <p>Melde dich mit deiner <b>Nummer auf der Klassenliste</b> an – <b>nicht</b> mit deinem Namen. Den <b>Testcode</b> zeigt dir deine Lehrkraft.</p>
-    <label for="inNr">Deine Nummer auf der Klassenliste</label>
-    <input id="inNr" class="field" inputmode="numeric" autocomplete="off" maxlength="2" placeholder="z. B. 7">
+    <p>Melde dich mit deiner <b>Wurzel-Check-Nummer</b> an – <b>nicht</b> mit deinem Namen. Den <b>Testcode</b> zeigt dir deine Lehrkraft.</p>
+    <label for="inNr">Deine Wurzel-Check-Nummer (3 Ziffern)</label>
+    <input id="inNr" class="field" inputmode="numeric" autocomplete="off" maxlength="3" placeholder="z. B. 417">
     <label for="inCode">Testcode</label>
     <input id="inCode" class="field" inputmode="numeric" autocomplete="off" maxlength="5" placeholder="5 Ziffern">
     <div id="loginErr" class="err"></div>
@@ -62,20 +80,45 @@
   <div class="card result" id="doneCard"></div>
 </section>
 
-<footer>Wurzel-Check · eigene Aufgaben, zufällig erzeugt · keine Namen, keine Anmeldung, kein Server – Ergebnisse gibst du per QR-Code direkt an deine Lehrkraft</footer>
+<footer>Wurzel-Check · eigene Aufgaben, zufällig erzeugt · keine Namen, kein Konto, kein Server – Ergebnisse gibst du per QR-Code direkt an deine Lehrkraft</footer>
 </main>
 
 <script src="lib/qrcode.js"></script>
 <script src="aufgaben.js"></script>
 <script>
 "use strict";
-const VIEWS = ['vHome', 'vPractice', 'vLogin', 'vTest', 'vDone'];
+const VIEWS = ['vHome', 'vPractice', 'vLogin', 'vTest', 'vDone', 'vProof'];
 function show(v) { VIEWS.forEach(x => $(x).classList.toggle('hidden', x !== v)); window.scrollTo(0, 0); }
 const store = {
   get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
 };
-const ACTIVE = 'wurzelcheck.aktiv';
+const ACTIVE = 'wurzelcheck.aktiv', NRKEY = 'wurzelcheck.nummer', PKEY = 'wurzelcheck.uebung';
+const DAY = 86400000;
+
+/* ---------- Übungsstatistik ---------- */
+function getPractice() {
+  let p = store.get(PKEY);
+  if (!p) p = { dev: Math.random().toString(36).slice(2, 8), rounds: 0, drills: 0, tasks: 0, correct: 0, days: [], minutes: 0, last: '' };
+  return p;
+}
+function notePractice(fn) { const p = getPractice(); fn(p); const d = today(); if (!p.days.includes(d)) p.days.push(d); p.last = d; store.set(PKEY, p); }
+
+/* ---------- Automatisches Aufräumen: Tests nach 14 Tagen, Übung nach 90 Tagen ohne Aktivität ---------- */
+function cleanup() {
+  try {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('wurzelcheck.test.')) { const st = store.get(k); if (!st || Date.now() - st.start > 14 * DAY) localStorage.removeItem(k); }
+    }
+    const act = store.get(ACTIVE); if (act && !store.get(tkey(act.code, act.nr))) localStorage.removeItem(ACTIVE);
+    const p = store.get(PKEY); if (p && p.last && Date.now() - new Date(p.last).getTime() > 90 * DAY) localStorage.removeItem(PKEY);
+  } catch (e) {}
+}
+function wipeAll() {
+  try { for (let i = localStorage.length - 1; i >= 0; i--) { const k = localStorage.key(i); if (k && k.startsWith('wurzelcheck.')) localStorage.removeItem(k); } } catch (e) {}
+  T = null;
+}
 const tkey = (code, nr) => `wurzelcheck.test.${code}.${nr}`;
 
 /* ---------- gemeinsame Eingabe-Bausteine ---------- */
@@ -117,24 +160,57 @@ function renderHome() {
     ? `<div class="card mode test"><b>📝 Dein Test läuft noch</b>Nr. ${st.nr} · Testcode ${st.code}<div class="btns"><button class="testbtn" id="resumeGo">Test fortsetzen</button></div></div>`
     : st && st.submitted ? `<div class="card"><b>✅ Test abgegeben</b> (Nr. ${st.nr}) <button id="resumeGo" style="margin-left:8px">Ergebnis-Code noch einmal zeigen</button></div>` : '';
   if ($('resumeGo')) $('resumeGo').onclick = () => openTest(st.code, st.nr);
+  renderNrCard();
   show('vHome');
 }
+function renderNrCard() {
+  const nr = store.get(NRKEY), p = store.get(PKEY);
+  const stat = p ? `Geübt: <b>${p.rounds}</b> ${p.rounds === 1 ? 'Runde' : 'Runden'} · <b>${p.drills}</b> Themen-Übungen · ${p.tasks} Aufgaben an ${p.days.length} ${p.days.length === 1 ? 'Tag' : 'Tagen'}` : 'Noch nicht geübt.';
+  $('nrCard').innerHTML = nr
+    ? `<div class="row"><div style="flex:1;min-width:220px">Deine Wurzel-Check-Nummer: <b style="font-size:1.25rem">${nr}</b> <button id="nrChange" style="margin-left:6px;padding:.25rem .6rem">ändern</button><br><small class="muted">${stat}</small></div>
+       <button id="proofGo">📋 Übungsnachweis zeigen</button></div>`
+    : `<label for="inMyNr" style="margin-top:0">Deine Wurzel-Check-Nummer <span class="muted" style="font-weight:400">(3 Ziffern, bekommst du von deiner Lehrkraft)</span></label>
+       <div class="row"><input id="inMyNr" class="field" inputmode="numeric" maxlength="3" autocomplete="off" placeholder="z. B. 417"><button class="primary" id="nrSave">Speichern</button></div>
+       <div id="nrErr" class="err"></div><small class="muted">Damit deine Lehrkraft sieht, wie fleißig du geübt hast. Üben geht auch ohne Nummer. ${p ? stat : ''}</small>`;
+  if ($('nrSave')) {
+    $('nrSave').onclick = () => {
+      const v = $('inMyNr').value.trim();
+      if (!validNr(v)) { $('nrErr').textContent = 'Diese Nummer gibt es nicht. Schau noch einmal auf deinen Zettel.'; return; }
+      store.set(NRKEY, +v); renderNrCard();
+    };
+    $('inMyNr').addEventListener('keydown', e => { if (e.key === 'Enter') $('nrSave').click(); });
+  }
+  if ($('nrChange')) $('nrChange').onclick = () => { try { localStorage.removeItem(NRKEY); } catch (e) {} renderNrCard(); $('inMyNr').focus(); };
+  if ($('proofGo')) $('proofGo').onclick = showProof;
+}
+function qrSvg(text) { const q = qrcode(0, 'M'); q.addData(text); q.make(); return q.createSvgTag({ cellSize: 4, margin: 2, scalable: true }); }
+function showProof() {
+  const nr = store.get(NRKEY), p = getPractice();
+  $('proofCard').innerHTML = `<h2>📋 Übungsnachweis · Nr. ${nr}</h2>
+    <p>${p.rounds} ${p.rounds === 1 ? 'Runde' : 'Runden'} · ${p.drills} Themen-Übungen · ${p.tasks} Aufgaben, davon ${p.correct} beim 1. Versuch richtig · an ${p.days.length} ${p.days.length === 1 ? 'Tag' : 'Tagen'} · ca. ${Math.round(p.minutes)} min</p>
+    <p><b>Zeige diesen QR-Code deiner Lehrkraft.</b> Das brauchst du nur, wenn du auf einem <b>anderen Gerät</b> geübt hast als dem, auf dem du den Test schreibst – sonst steckt dein Übungsnachweis schon im Test-Code.</p>
+    <div class="qrbox">${qrSvg(makePracticePayload(nr, p))}</div>
+    <div class="btns" style="justify-content:center"><button id="proofBack">← Startseite</button></div>`;
+  $('proofBack').onclick = renderHome;
+  show('vProof');
+}
+$('wipeAll').onclick = () => { if (confirm('Wirklich alle Wurzel-Check-Daten (Nummer, Übungsstatistik, Tests) von diesem Gerät löschen?')) { wipeAll(); renderHome(); } };
 $('goPractice').onclick = () => startPractice(null);
-$('goTest').onclick = () => { $('loginErr').textContent = ''; $('loginConfirm').innerHTML = ''; show('vLogin'); $('inNr').focus(); };
+$('goTest').onclick = () => { $('loginErr').textContent = ''; $('loginConfirm').innerHTML = ''; const n = store.get(NRKEY); $('inNr').value = n || ''; show('vLogin'); (n ? $('inCode') : $('inNr')).focus(); };
 $('pHome').onclick = renderHome;
 $('loginBack').onclick = renderHome;
 
 /* ================= ÜBUNG ================= */
 let P = null;
 function startPractice(slot) {
-  P = { slot, tasks: practiceTasks(slot), i: 0, first: [], tries: 0, done: false, a: {} };
+  P = { slot, tasks: practiceTasks(slot), i: 0, first: [], tries: 0, done: false, a: {}, t0: Date.now() };
   show('vPractice'); renderPractice();
 }
 function renderPractice() {
   const t = P.tasks[P.i];
   $('pProgress').textContent = `Aufgabe ${P.i + 1} von ${P.tasks.length}`;
   $('pScore').textContent = `✓ beim 1. Versuch: ${P.first.filter(x => x === 2).length}`;
-  P.tries = 0; P.done = false; P.a = {};
+  P.tries = 0; P.done = false; P.a = {}; P.t0 = Date.now();
   const head = `${P.slot === null ? (t.slot + 1) + ' · ' : ''}${SLOTS[t.slot].name}`;
   $('pCard').innerHTML = taskHtml(t, head, {},
     `<div class="btns">${t.type !== 'mc' ? '<button class="primary" id="pCheck">Prüfen ✓</button>' : ''}<button id="pHint">💡 Tipp</button></div><div id="fb"></div>`);
@@ -168,11 +244,14 @@ function practiceCheck() {
     $('fb').innerHTML = `<div class="fb bad">Leider wieder falsch. Richtig ist: <b>${correctText(t)}</b>${solHtml}</div>${next}`;
   }
   P.done = true;
+  const mins = Math.min(5, (Date.now() - P.t0) / 60000);   // höchstens 5 min pro Aufgabe anrechnen
+  notePractice(p => { p.tasks++; if (P.first[P.i] === 2) p.correct++; p.minutes += mins; });
   $('pCard').querySelectorAll('input,.opt,#pCheck,#pHint').forEach(x => x.disabled = true);
   $('pNext').onclick = () => { P.i++; P.i < P.tasks.length ? renderPractice() : practiceSummary(); };
   $('pNext').focus();
 }
 function practiceSummary() {
+  notePractice(p => { if (P.slot === null) p.rounds++; else p.drills++; });
   const n = P.first.filter(x => x === 2).length, N = P.tasks.length;
   $('pProgress').textContent = 'Auswertung'; $('pScore').textContent = `${n} von ${N}`;
   const wrong = P.tasks.map((t, i) => [t, i]).filter(([, i]) => P.first[i] !== 2);
@@ -190,14 +269,14 @@ function practiceSummary() {
 /* ================= TEST ================= */
 let T = null;   // { code, nr, tasks, st }
 $('loginGo').onclick = () => {
-  const nr = parseInt($('inNr').value, 10), code = $('inCode').value.trim();
+  const nrTxt = $('inNr').value.trim(), nr = parseInt(nrTxt, 10), code = $('inCode').value.trim();
   $('loginConfirm').innerHTML = '';
-  if (!(nr >= 1 && nr <= 40)) { $('loginErr').textContent = 'Bitte gib deine Nummer auf der Klassenliste ein (1 bis 40).'; return; }
+  if (!validNr(nrTxt)) { $('loginErr').textContent = 'Diese Wurzel-Check-Nummer gibt es nicht. Schau noch einmal auf deinen Zettel.'; return; }
   if (!validCode(code)) { $('loginErr').textContent = 'Dieser Testcode stimmt nicht. Schau noch einmal genau hin.'; return; }
   $('loginErr').textContent = '';
-  $('loginConfirm').innerHTML = `<div class="fb warn" style="margin-top:14px">Du bist <b>Nr. ${nr}</b> auf der Klassenliste. Stimmt das?
+  $('loginConfirm').innerHTML = `<div class="fb warn" style="margin-top:14px">Deine Wurzel-Check-Nummer ist <b>${nr}</b>. Stimmt das?
     <div class="btns"><button class="testbtn" id="lcYes">Ja, Test starten</button><button id="lcNo">Nein, ändern</button></div></div>`;
-  $('lcYes').onclick = () => openTest(code, nr);
+  $('lcYes').onclick = () => { if (!store.get(NRKEY)) store.set(NRKEY, nr); openTest(code, nr); };
   $('lcNo').onclick = () => { $('loginConfirm').innerHTML = ''; $('inNr').focus(); };
 };
 ['inNr', 'inCode'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter') $('loginGo').click(); }));
@@ -266,27 +345,35 @@ function renderDone() {
   const st = T.st, grades = T.tasks.map((t, i) => grade(t, st.answers[i]));
   const pts = grades.reduce((s, g) => s + points(g), 0);
   const minutes = Math.max(1, Math.round(((st.end || Date.now()) - st.start) / 60000));
-  const payload = makePayload(T.code, T.nr, st.tabs, minutes, st.answers);
+  const payload = makePayload(T.code, T.nr, st.tabs, minutes, st.answers, store.get(PKEY));
   const short = makeShortCode(T.code, T.nr, st.tabs, grades);
-  let qrSvg = '';
-  try { const qr = qrcode(0, 'M'); qr.addData(payload); qr.make(); qrSvg = qr.createSvgTag({ cellSize: 4, margin: 2, scalable: true }); }
-  catch (e) { qrSvg = '<p class="err">QR-Code konnte nicht erzeugt werden – nutze den Code darunter.</p>'; }
+  let qrHtml = '';
+  try { qrHtml = qrSvg(payload); }
+  catch (e) { qrHtml = '<p class="err">QR-Code konnte nicht erzeugt werden – nutze den Code darunter.</p>'; }
   const sym = g => g === 2 ? '<span class="g2">✓</span>' : g === 1 ? '<span class="g1">½</span>' : '<span class="g0">✗</span>';
   $('doneCard').innerHTML = `
     <h2>✅ Test abgegeben · Nr. ${T.nr}</h2>
     <div class="score">${fmtPts(pts)} / ${SLOTS.length} Punkte</div>
     <p><b>Zeige diesen QR-Code deiner Lehrkraft</b> – sie scannt ihn ein. Lass die Seite so lange offen.</p>
-    <div class="qrbox">${qrSvg}</div>
+    <div class="qrbox">${qrHtml}</div>
     <p class="muted" style="margin:.2rem 0">Falls der Scan nicht klappt, diesen Code ansagen:</p>
     <div class="shortcode">${short}</div>
     <div class="reslist">${T.tasks.map((t, i) => `<div>${sym(grades[i])} ${i + 1}. ${SLOTS[t.slot].name}</div>`).join('')}</div>
     <p class="muted"><small>½ = Wert richtig, aber nicht vollständig vereinfacht bzw. nicht in der verlangten Schreibweise.</small></p>
-    <div class="btns" style="justify-content:center"><button id="dHome">← Startseite</button></div>`;
+    <div class="btns" style="justify-content:center"><button id="dHome">← Startseite</button><button class="danger" id="dWipe">Fertig – Daten von diesem Gerät löschen</button></div>
+    <div id="dWipeAsk"></div>`;
   $('dHome').onclick = renderHome;
+  $('dWipe').onclick = () => {
+    $('dWipeAsk').innerHTML = `<div class="fb warn" style="margin-top:12px">Hat deine Lehrkraft deinen QR-Code schon gescannt? Danach ist alles weg: Test, Nummer und Übungsstatistik.
+      <div class="btns" style="justify-content:center"><button class="danger" id="dWipeYes">Ja, gescannt – jetzt löschen</button><button id="dWipeNo">Nein, noch nicht</button></div></div>`;
+    $('dWipeNo').onclick = () => $('dWipeAsk').innerHTML = '';
+    $('dWipeYes').onclick = () => { wipeAll(); renderHome(); };
+  };
   show('vDone');
 }
 
 /* ---------- Start ---------- */
+cleanup();
 renderHome();
 if (location.hash === '#test') $('goTest').click();
 </script>

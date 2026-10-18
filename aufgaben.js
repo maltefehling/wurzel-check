@@ -649,8 +649,38 @@ function codeCheckDigit(d4) { const w = [3, 7, 9, 1]; return String([...d4].redu
 function newTestCode() { const d = String(Math.floor(Math.random() * 10000)).padStart(4, '0'); return d + codeCheckDigit(d); }
 function validCode(c) { return /^\d{5}$/.test(c) && codeCheckDigit(c.slice(0, 4)) === c[4]; }
 
+/* ---------- Schülernummer: 3 Ziffern, die letzte ist Prüfziffer ----------
+   Gültig, wenn (3·d1 + 7·d2 + d3) mod 10 = 0. Das ergibt 90 mögliche Nummern (genug für eine Klasse)
+   und fängt Zahlendreher und einzelne Tippfehler ab. Die Nummer verrät nichts über die Klassenliste. */
+function validNr(n) {
+  const s = String(n).trim();
+  if (!/^[1-9]\d\d$/.test(s)) return false;
+  return (3 * +s[0] + 7 * +s[1] + +s[2]) % 10 === 0;
+}
+const ALL_NRS = Array.from({ length: 900 }, (_, i) => i + 100).filter(validNr);
+function randomNrs(count) {
+  const pool = ALL_NRS.slice();
+  for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+  return pool.slice(0, Math.min(count, pool.length)).sort((a, b) => a - b);
+}
+
+/* ---------- Übungsstatistik (bleibt auf dem Schülergerät, bis sie per QR gezeigt wird) ----------
+   { dev, rounds, drills, tasks, correct, days: ['2026-10-18', …], minutes, last } */
+const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+function encPractice(p) {
+  if (!p) return '';
+  return [p.dev, p.rounds, p.drills, p.tasks, p.correct, p.days.length, Math.round(p.minutes), (p.last || '').replace(/-/g, '')].join('.');
+}
+function decPractice(s) {
+  if (!s) return null;
+  const [dev, rounds, drills, tasks, correct, days, minutes, last] = s.split('.');
+  return { dev, rounds: +rounds, drills: +drills, tasks: +tasks, correct: +correct, days: +days, minutes: +minutes,
+    last: last ? `${last.slice(0, 4)}-${last.slice(4, 6)}-${last.slice(6, 8)}` : '' };
+}
+
 /* ---------- Ergebnis-Übertragung per QR-Code ----------
-   Inhalt: WC1|code|nr|tabs|minuten|antworten|prüfsumme. Die Lehrerseite bewertet anhand der Antworten selbst neu. */
+   Test:  WC2|code|nr|tabs|minuten|antworten|übung|prüfsumme  (die Lehrerseite bewertet anhand der Antworten selbst neu)
+   Übung: WU1|nr|übung|prüfsumme                               (Übungsnachweis, auch von einem anderen Gerät) */
 const SALT = 'Untersee-Hoeri';
 const sig = s => hash32(SALT + '|' + s).toString(36).toUpperCase().padStart(7, '0').slice(-5);
 function encAnswers(answers) {
@@ -664,23 +694,33 @@ function decAnswers(s) {
     return { a1, a2 };
   });
 }
-function makePayload(code, nr, tabs, minutes, answers) {
-  const body = ['WC1', code, nr, tabs, minutes, encAnswers(answers)].join('|');
+function makePayload(code, nr, tabs, minutes, answers, practice) {
+  const body = ['WC2', code, nr, tabs, minutes, encAnswers(answers), encPractice(practice)].join('|');
+  return body + '|' + sig(body);
+}
+function makePracticePayload(nr, practice) {
+  const body = ['WU1', nr, encPractice(practice)].join('|');
   return body + '|' + sig(body);
 }
 function parsePayload(txt) {
   const p = String(txt).trim().split('|');
-  if (p.length !== 7 || p[0] !== 'WC1') return null;
-  const body = p.slice(0, 6).join('|');
-  return { code: p[1], nr: +p[2], tabs: +p[3], minutes: +p[4], answers: decAnswers(p[5]), valid: sig(body) === p[6], raw: txt };
+  if (p[0] === 'WC2' && p.length === 8) {
+    const body = p.slice(0, 7).join('|');
+    return { kind: 'test', code: p[1], nr: +p[2], tabs: +p[3], minutes: +p[4], answers: decAnswers(p[5]), practice: decPractice(p[6]), valid: sig(body) === p[7] };
+  }
+  if (p[0] === 'WU1' && p.length === 4) {
+    const body = p.slice(0, 3).join('|');
+    return { kind: 'practice', nr: +p[1], practice: decPractice(p[2]), valid: sig(body) === p[3] };
+  }
+  return null;
 }
-/* Kurzcode zum Abtippen (ohne Antworten): Nr-Bewertungen-Tabwechsel-Prüfsumme, z. B. 7-222120222202-0-K3F9A */
+/* Kurzcode zum Abtippen (ohne Antworten und Übung): Nr-Bewertungen-Tabwechsel-Prüfsumme, z. B. 417-222120222202-0-K3F9A */
 function makeShortCode(code, nr, tabs, grades) {
   const g = grades.map(x => Math.max(0, x)).join('');
   return `${nr}-${g}-${tabs}-${sig(`S|${code}|${nr}|${g}|${tabs}`)}`;
 }
 function parseShortCode(txt, code) {
-  const m = String(txt).trim().toUpperCase().replace(/\s/g, '').match(/^(\d{1,2})-([012]{12})-(\d{1,3})-([0-9A-Z]{5})$/);
+  const m = String(txt).trim().toUpperCase().replace(/\s/g, '').match(/^(\d{3})-([012]{12})-(\d{1,3})-([0-9A-Z]{5})$/);
   if (!m) return null;
   const [, nr, g, tabs, s] = m;
   return { nr: +nr, grades: [...g].map(Number), tabs: +tabs, valid: sig(`S|${code}|${+nr}|${g}|${+tabs}`) === s };
