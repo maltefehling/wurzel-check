@@ -36,8 +36,13 @@
 <div class="card" id="collectCard">
   <h2>2 · Ergebnisse einsammeln</h2>
   <p class="muted" style="margin-top:0">Schüler zeigen nach dem Abgeben einen QR-Code (enthält auch ihre Übungsstatistik). Wer auf einem anderen Gerät geübt hat, zeigt zusätzlich den „Übungsnachweis“ von der Startseite. Beides kannst du jederzeit scannen, auch schon vor dem Test.</p>
-  <div class="btns"><button class="testbtn" id="btnStation">🖥 Scanstation (Gerät steht vorne)</button><button class="primary" id="btnCam">📷 Selbst herumgehen und scannen</button><button id="btnCamStop" class="hidden">Kamera stoppen</button></div>
-  <p class="muted"><small>Scanstation: Stell das iPad (Frontkamera) oder einen Laptop mit Webcam vorne hin. Wer fertig ist, kommt nach vorne und hält den QR-Code kurz vor die Kamera. Angezeigt wird nur „Nr. … erfasst“, keine Punkte.</small></p>
+  <p style="margin:.4rem 0">Du kannst auf zwei Arten scannen – such dir aus, was in der Stunde besser passt:</p>
+  <div class="modes">
+    <div class="card mode" style="margin:0"><b>📷 Herumgehen</b>Du gehst mit dem iPad (Rückkamera) durch die Klasse und scannst die Codes an den Plätzen. Nach jedem Scan siehst du kurz Nummer, Punkte und Note.
+      <div class="btns"><button class="primary" id="btnCam">Kamera starten</button><button id="btnCamStop" class="hidden">Kamera stoppen</button></div></div>
+    <div class="card mode" style="margin:0"><b>🖥 Scanstation</b>Das iPad (Frontkamera) oder ein Laptop mit Webcam steht vorne. Wer fertig ist, hält seinen Code kurz vor die Kamera. Angezeigt wird nur „Nr. … erfasst“, keine Punkte – dazu, welche Nummern noch fehlen.
+      <div class="btns"><button class="primary" id="btnStation">Scanstation öffnen</button></div></div>
+  </div>
   <div class="scanwrap" style="margin-top:10px"><video id="video" playsinline muted class="hidden"></video></div>
   <canvas id="canvas" class="hidden"></canvas>
   <label for="inShort">Oder Code von Hand eingeben (z. B. 417-222120222202-0-K3F9A)</label>
