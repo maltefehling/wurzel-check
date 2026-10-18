@@ -57,9 +57,9 @@
     <h2>📝 Test schreiben</h2>
     <p>Melde dich mit deiner <b>Wurzel-Check-Nummer</b> an – <b>nicht</b> mit deinem Namen. Den <b>Testcode</b> zeigt dir deine Lehrkraft.</p>
     <label for="inNr">Deine Wurzel-Check-Nummer (3 Ziffern)</label>
-    <input id="inNr" class="field" inputmode="numeric" autocomplete="off" maxlength="3" placeholder="z. B. 417">
+    <input id="inNr" class="field" inputmode="numeric" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" maxlength="3" placeholder="z. B. 417">
     <label for="inCode">Testcode</label>
-    <input id="inCode" class="field" inputmode="numeric" autocomplete="off" maxlength="5" placeholder="5 Ziffern">
+    <input id="inCode" class="field" inputmode="numeric" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" maxlength="5" placeholder="5 Ziffern">
     <div id="loginErr" class="err"></div>
     <div class="btns"><button class="testbtn" id="loginGo">Weiter</button><button id="loginBack">← Startseite</button></div>
     <div id="loginConfirm"></div>
@@ -88,7 +88,7 @@
 <script>
 "use strict";
 const VIEWS = ['vHome', 'vPractice', 'vLogin', 'vTest', 'vDone', 'vProof'];
-function show(v) { VIEWS.forEach(x => $(x).classList.toggle('hidden', x !== v)); window.scrollTo(0, 0); }
+function show(v) { VIEWS.forEach(x => $(x).classList.toggle('hidden', x !== v)); window.scrollTo(0, 0); if (typeof keepAwake === 'function') keepAwake(v === 'vTest' || v === 'vDone'); }
 const store = {
   get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
@@ -124,10 +124,10 @@ const tkey = (code, nr) => `wurzelcheck.test.${code}.${nr}`;
 /* ---------- gemeinsame Eingabe-Bausteine ---------- */
 function inputHtml(t, a = {}) {
   const v = x => (x == null ? '' : String(x).replace(/"/g, '&quot;'));
-  if (t.type === 'num') return `<div class="answer">${t.pre ? `<span>${t.pre}</span>` : ''}<input id="a1" inputmode="decimal" autocomplete="off" aria-label="Antwort" value="${v(a.a1)}">${t.post ? `<span>${t.post}</span>` : ''}</div>`;
-  if (t.type === 'sci') return `<div class="answer"><input id="a1" class="s" inputmode="decimal" autocomplete="off" aria-label="Zahl vor der Zehnerpotenz" value="${v(a.a1)}"><span>· 10</span><sup><input id="a2" class="s" inputmode="numeric" autocomplete="off" aria-label="Exponent" style="font-size:1rem;width:3.2em" value="${v(a.a2)}"></sup></div>`;
-  if (t.type === 'surd') return `<div class="answer"><input id="a1" class="s" inputmode="numeric" autocomplete="off" aria-label="Zahl vor der Wurzel" value="${v(a.a1)}"><span>· √</span><input id="a2" class="s" inputmode="numeric" autocomplete="off" aria-label="Zahl unter der Wurzel" value="${v(a.a2)}">${t.post ? `<span>${t.post}</span>` : ''}</div><small class="muted">Links die Zahl vor der Wurzel, rechts die Zahl unter der Wurzel.</small>`;
-  if (t.type === 'frac') return `<div class="answer"><span class="fracin"><input id="a1" class="s" inputmode="numeric" autocomplete="off" aria-label="Zähler" value="${v(a.a1)}"><span class="fbar"></span><input id="a2" class="s" inputmode="numeric" autocomplete="off" aria-label="Nenner" value="${v(a.a2)}"></span></div><small class="muted">Oben der Zähler, unten der Nenner.</small>`;
+  if (t.type === 'num') return `<div class="answer">${t.pre ? `<span>${t.pre}</span>` : ''}<input id="a1" inputmode="decimal" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Antwort" value="${v(a.a1)}">${t.post ? `<span>${t.post}</span>` : ''}</div>`;
+  if (t.type === 'sci') return `<div class="answer"><input id="a1" class="s" inputmode="decimal" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Zahl vor der Zehnerpotenz" value="${v(a.a1)}"><span class="pow10">· 10<input id="a2" class="s exp" inputmode="numeric" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Exponent (Hochzahl)" value="${v(a.a2)}"></span></div><small class="muted">Links die Zahl vor der Zehnerpotenz, rechts oben die Hochzahl.</small>`;
+  if (t.type === 'surd') return `<div class="answer"><input id="a1" class="s" inputmode="numeric" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Zahl vor der Wurzel" value="${v(a.a1)}"><span>· √</span><input id="a2" class="s" inputmode="numeric" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Zahl unter der Wurzel" value="${v(a.a2)}">${t.post ? `<span>${t.post}</span>` : ''}</div><small class="muted">Links die Zahl vor der Wurzel, rechts die Zahl unter der Wurzel.</small>`;
+  if (t.type === 'frac') return `<div class="answer"><span class="fracin"><input id="a1" class="s" inputmode="numeric" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Zähler" value="${v(a.a1)}"><span class="fbar"></span><input id="a2" class="s" inputmode="numeric" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Nenner" value="${v(a.a2)}"></span></div><small class="muted">Oben der Zähler, unten der Nenner.</small>`;
   if (t.type === 'mc') return `<div class="mc">${t.options.map((o, k) => `<button class="opt ${a.k === k ? 'sel' : ''}" data-k="${k}">${o}</button>`).join('')}</div>`;
 }
 function taskHtml(t, head, a, extra = '') {
@@ -170,10 +170,10 @@ function renderNrCard() {
   const nr = store.get(NRKEY), p = store.get(PKEY);
   const stat = p ? `Geübt: <b>${p.rounds}</b> ${p.rounds === 1 ? 'Runde' : 'Runden'} · <b>${p.drills}</b> Themen-Übungen · ${p.tasks} Aufgaben an ${p.days.length} ${p.days.length === 1 ? 'Tag' : 'Tagen'}` : 'Noch nicht geübt.';
   $('nrCard').innerHTML = nr
-    ? `<div class="row"><div style="flex:1;min-width:220px">Deine Wurzel-Check-Nummer: <b style="font-size:1.25rem">${nr}</b> <button id="nrChange" style="margin-left:6px;padding:.25rem .6rem">ändern</button><br><small class="muted">${stat}</small></div>
+    ? `<div class="row"><div style="flex:1;min-width:220px">Deine Wurzel-Check-Nummer: <b style="font-size:1.25rem">${nr}</b> <button id="nrChange" style="margin-left:6px">ändern</button><br><small class="muted">${stat}</small></div>
        <button id="proofGo">📋 Übungsnachweis zeigen</button></div>`
     : `<label for="inMyNr" style="margin-top:0">Deine Wurzel-Check-Nummer <span class="muted" style="font-weight:400">(3 Ziffern, bekommst du von deiner Lehrkraft)</span></label>
-       <div class="row"><input id="inMyNr" class="field" inputmode="numeric" maxlength="3" autocomplete="off" placeholder="z. B. 417"><button class="primary" id="nrSave">Speichern</button></div>
+       <div class="row"><input id="inMyNr" class="field" inputmode="numeric" maxlength="3" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="z. B. 417"><button class="primary" id="nrSave">Speichern</button></div>
        <div id="nrErr" class="err"></div><small class="muted">Damit deine Lehrkraft sieht, wie fleißig du geübt hast. Üben geht auch ohne Nummer. ${p ? stat : ''}</small>`;
   if ($('nrSave')) {
     $('nrSave').onclick = () => {
@@ -222,7 +222,11 @@ function renderPractice() {
   if (t.type === 'mc') $('pCard').querySelectorAll('.opt').forEach(b => b.onclick = () => { P.a = { k: +b.dataset.k }; practiceCheck(); });
   else {
     $('pCheck').onclick = () => { P.a = readInputs(); practiceCheck(); };
-    $('pCard').querySelectorAll('input').forEach(inp => inp.addEventListener('keydown', e => { if (e.key === 'Enter') { P.a = readInputs(); practiceCheck(); } }));
+    $('pCard').querySelectorAll('input').forEach(inp => inp.addEventListener('keydown', e => {
+      if (e.key !== 'Enter') return;
+      if (inp.id === 'a1' && $('a2') && $('a2').value.trim() === '') { e.preventDefault(); $('a2').focus(); return; }   // erst ins zweite Feld
+      P.a = readInputs(); practiceCheck();
+    }));
     setTimeout(() => $('a1') && $('a1').focus({ preventScroll: true }), 50);
   }
   $('pHint').onclick = () => { if (!P.done) $('fb').innerHTML = `<div class="fb hint">💡 ${t.hint}</div>`; };
@@ -385,6 +389,22 @@ function renderDone() {
   };
   show('vDone');
 }
+
+/* ---------- iPad: Bildschirm im Test und beim Ergebnis-QR wach halten ----------
+   Sonst sperrt sich das iPad beim Nachdenken, und das würde als „Test verlassen“ gezählt. */
+let wakeLock = null;
+async function keepAwake(on) {
+  try {
+    if (on && !wakeLock && navigator.wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); }
+    if (!on && wakeLock) { await wakeLock.release(); wakeLock = null; }
+  } catch (e) { wakeLock = null; }
+}
+const inTestOrDone = () => !$('vTest').classList.contains('hidden') || !$('vDone').classList.contains('hidden');
+document.addEventListener('visibilitychange', () => { if (!document.hidden && inTestOrDone()) keepAwake(true); });
+/* Beim Antippen eines Eingabefelds: Feld samt Knöpfen mittig rücken, damit die Bildschirmtastatur nichts verdeckt */
+document.addEventListener('focusin', e => {
+  if (e.target.matches('.answer input, .fracin input')) setTimeout(() => (e.target.closest('.answer') || e.target).scrollIntoView({ block: 'center', behavior: 'smooth' }), 350);
+});
 
 /* ---------- Start ---------- */
 cleanup();
