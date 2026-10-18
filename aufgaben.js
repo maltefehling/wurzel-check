@@ -671,7 +671,7 @@ function rasterReport(tasks, grades, withButtons = false) {
   let html = '', area = '';
   for (const i of idx) {
     const t = tasks[i];
-    if (SLOTS[t.slot].area !== area) { if (area) html += '</div>'; area = SLOTS[t.slot].area; html += `<div class="rarea"><div class="rhead">${area}</div>`; }
+    if (SLOTS[t.slot].area !== area) { if (area) html += '</div>'; area = SLOTS[t.slot].area; html += `<div class="rarea${SLOTS[t.slot].review ? ' rev' : ''}"><div class="rhead">${SLOTS[t.slot].review ? `🔁 ${area} <span class="muted" style="font-weight:400">(nicht im Kompetenzraster)</span>` : area}</div>`; }
     html += `<div class="rrow"><span class="sy">${sym(grades[i])}</span><span class="txt">Ich kann ${t.can}</span>${withButtons && grades[i] !== 2 ? ` <button class="mini" data-i="${t.slot}">üben</button>` : ''}</div>`;
   }
   return `<div class="rreport">${html}</div></div>`;

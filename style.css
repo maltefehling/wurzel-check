@@ -175,3 +175,4 @@ button.mini{padding:.15rem .6rem;font-size:.85rem}
 .fr span:last-child{border-top:1.5px solid currentColor;padding:0 .15em}
 .fracin{display:inline-flex;flex-direction:column;align-items:center;gap:4px}
 .fracin .fbar{display:block;width:100%;height:2px;background:var(--ink)}
+.rarea.rev{background:#f0fdfa;border-color:#5eead4}
