@@ -558,6 +558,29 @@ G.nteWurzel = function () {
   };
 };
 
+/* Basisniveau (Abgleich mit dem Basistraining im Buch): nur positive ganze Basen, ohne Minus und ohne Dezimalzahlen */
+G.potenzwertBasis = function () {
+  const [b, e] = pick([[2, R(3, 7)], [3, R(2, 4)], [4, R(2, 3)], [5, R(2, 3)], [R(6, 12), 2], [10, R(3, 6)], [6, 3]]);
+  const v = Math.pow(b, e);
+  return {
+    title: 'Potenzwert', q: `Berechne.<div class="big">${pw(b, e)} = ?</div>`, type: 'num', ans: v,
+    hint: `Der Exponent ${e} sagt dir, wie oft du die Basis ${b} mit sich selbst multiplizierst.`,
+    sol: [`${pw(b, e)} = ${Array(e).fill(b).join(' · ')}`, `= ${fmt(v)}`]
+  };
+};
+/* Quadratwurzeln aus Dezimalzahlen und großen Zahlen, im Kopf lösbar (wie √0,16, √2,25, √900, √1 000 000) */
+G.wurzelDezBasis = function () {
+  const r = pick([() => pick([2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15]) / 10, () => R(2, 15) * 10, () => R(1, 10) * 100])();
+  const rad = Number((r * r).toPrecision(10));
+  const base = Number.isInteger(r) ? +String(r).replace(/0+$/, '') : Math.round(r * 10);   // 0,7 → 7; 120 → 12; 300 → 3
+  return {
+    title: 'Quadratwurzel im Kopf', q: `Bestimme ohne Taschenrechner.<div class="big">${sq(fmt(rad))} = ?</div>`, type: 'num', ans: r,
+    hint: !Number.isInteger(r) ? `Denk an ${sq(base * base)} = ${base}. Das Ergebnis hat halb so viele Nachkommastellen wie die Zahl unter der Wurzel.`
+      : `Denk an ${sq(base * base)} = ${base}. Je zwei Nullen unter der Wurzel ergeben eine Null im Ergebnis.`,
+    sol: [`${fmt(r)} · ${fmt(r)} = ${fmt(rad)}`, `also ${sq(fmt(rad))} = ${fmt(r)}`]
+  };
+};
+
 /* Nur in der Übung: eine Nachkommastelle prüfen statt mühsam suchen (Taschenrechner erlaubt) */
 G.einschachtelnDez = function () {
   let n; do { n = R(11, 150); } while (Number.isInteger(Math.sqrt(n)));
@@ -587,12 +610,12 @@ const MIT_TR = new Set(['exponent', 'groesstePotenz', 'quadratFlaeche', 'wuerfel
    Die „Ich kann …“-Sätze stehen in RASTER und müssen WORTGLEICH im Kompetenzraster stehen. */
 const SLOTS = [
   { area: 'S. 10–11 Potenzen', name: 'Potenzschreibweise', gens: ['produktPotenz', 'exponent'] },
-  { area: 'S. 10–11 Potenzen', name: 'Potenzwerte berechnen', gens: ['potenzwert', 'minusFalle'] },
+  { area: 'S. 10–11 Potenzen', name: 'Potenzwerte berechnen', gens: ['potenzwertBasis', 'groesstePotenz'] },
   { area: 'S. 12–13 Zehnerpotenzen', name: 'Zehnerpotenzen ausschreiben', gens: ['sciZuruck'] },
-  { area: 'S. 12–13 Zehnerpotenzen', name: 'Wissenschaftliche und technische Schreibweise', gens: ['sciVoll', 'technisch'] },
+  { area: 'S. 12–13 Zehnerpotenzen', name: 'Wissenschaftliche und technische Schreibweise', gens: ['sciVoll', 'technisch', 'sciExp'] },
   { area: 'S. 12–13 Zehnerpotenzen', name: 'Taschenrechneranzeige', gens: ['trAnzeige'] },
-  { area: 'S. 14–15 Quadratwurzeln', name: 'Quadratwurzeln bestimmen', gens: ['wurzelGanz', 'wurzelDez'] },
-  { area: 'S. 14–15 Quadratwurzeln', name: 'Seiten- und Kantenlängen', gens: ['quadratFlaeche', 'wuerfelOberflaeche'] },
+  { area: 'S. 14–15 Quadratwurzeln', name: 'Quadratwurzeln bestimmen', gens: ['wurzelGanz', 'wurzelDezBasis'] },
+  { area: 'S. 14–15 Quadratwurzeln', name: 'Seiten- und Kantenlängen', gens: ['quadratFlaeche'], practiceGens: ['quadratFlaeche', 'wuerfelOberflaeche'] },   // Würfel-Oberfläche (2 Schritte) nur in der Übung
   { area: 'S. 16–17 Bestimmen von Quadratwurzeln', name: 'Wurzeln näherungsweise bestimmen', gens: ['einschachteln'], practiceGens: ['einschachteln', 'einschachtelnDez'] },   // im Test nur ganze Zahlen
   { area: 'S. 20–21 Wurzeln multiplizieren und dividieren', name: 'Wurzeln multiplizieren und dividieren', gens: ['wurzelProdukt', 'wurzelQuotient'] },
   { area: 'S. 22–23 Rechnen mit Quadratwurzeln (a)', name: 'Teilweise Wurzel ziehen', gens: ['teilweise'] },
@@ -602,11 +625,11 @@ const SLOTS = [
 const RASTER = {
   produktPotenz: 'Produkte als Potenz angeben und berechnen.',
   exponent: 'Zahlen in der Potenzschreibweise angeben.',
-  potenzwert: 'Potenzwerte berechnen.', minusFalle: 'Potenzwerte berechnen.',
+  potenzwert: 'Potenzwerte berechnen.', minusFalle: 'Potenzwerte berechnen.', potenzwertBasis: 'Potenzwerte berechnen.', groesstePotenz: 'Potenzwerte berechnen.',
   sciZuruck: 'Zahlen ohne Potenzen angeben.',
-  sciVoll: 'Zahlen in technischer und wissenschaftlicher Schreibweise angeben.', technisch: 'Zahlen in technischer und wissenschaftlicher Schreibweise angeben.',
+  sciVoll: 'Zahlen in technischer und wissenschaftlicher Schreibweise angeben.', sciExp: 'Zahlen in technischer und wissenschaftlicher Schreibweise angeben.', technisch: 'Zahlen in technischer und wissenschaftlicher Schreibweise angeben.',
   trAnzeige: 'die Taschenrechneranzeige interpretieren.',
-  wurzelGanz: 'Quadratwurzeln bestimmen.', wurzelDez: 'Quadratwurzeln bestimmen.',
+  wurzelGanz: 'Quadratwurzeln bestimmen.', wurzelDez: 'Quadratwurzeln bestimmen.', wurzelDezBasis: 'Quadratwurzeln bestimmen.',
   quadratFlaeche: 'Seiten- und Kantenlängen von Quadraten und Würfeln durch Wurzelziehen bestimmen.',
   wuerfelOberflaeche: 'Seiten- und Kantenlängen von Quadraten und Würfeln durch Wurzelziehen bestimmen.',
   einschachteln: 'Quadratwurzeln näherungsweise bestimmen.', einschachtelnDez: 'Quadratwurzeln näherungsweise bestimmen.',
