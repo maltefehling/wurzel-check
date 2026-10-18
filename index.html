@@ -12,12 +12,12 @@
 <!-- ============ START ============ -->
 <section id="vHome">
   <h1>Wurzel-Check</h1>
-  <p class="muted" style="margin-top:0">Hochzahlen und Wurzeln · 12 Aufgaben, eine zu jedem Punkt des Kompetenzrasters</p>
+  <p class="muted" style="margin-top:0">Hochzahlen und Wurzeln · 12 Aufgaben zu den Punkten des Kompetenzrasters + 1 Wiederholungsaufgabe</p>
   <div id="resumeBox"></div>
   <div class="card" id="nrCard"></div>
   <div class="modes">
     <button class="card mode" id="goPractice"><b>🔁 Probetest üben</b>
-      Alle 12 Aufgaben wie im Test – jedes Mal mit neuen Zahlen. Du bekommst sofort Rückmeldung, Tipps und den Lösungsweg. So oft du willst.</button>
+      Alle Aufgaben wie im Test – jedes Mal mit neuen Zahlen und in anderer Reihenfolge. Du bekommst sofort Rückmeldung, Tipps und den Lösungsweg. So oft du willst.</button>
     <button class="card mode test" id="goTest"><b>📝 Test schreiben</b>
       Nur in der Stunde mit dem Testcode deiner Lehrkraft. Keine Rückmeldung während des Tests.</button>
   </div>
@@ -127,10 +127,12 @@ function inputHtml(t, a = {}) {
   if (t.type === 'num') return `<div class="answer">${t.pre ? `<span>${t.pre}</span>` : ''}<input id="a1" inputmode="decimal" autocomplete="off" aria-label="Antwort" value="${v(a.a1)}">${t.post ? `<span>${t.post}</span>` : ''}</div>`;
   if (t.type === 'sci') return `<div class="answer"><input id="a1" class="s" inputmode="decimal" autocomplete="off" aria-label="Zahl vor der Zehnerpotenz" value="${v(a.a1)}"><span>· 10</span><sup><input id="a2" class="s" inputmode="numeric" autocomplete="off" aria-label="Exponent" style="font-size:1rem;width:3.2em" value="${v(a.a2)}"></sup></div>`;
   if (t.type === 'surd') return `<div class="answer"><input id="a1" class="s" inputmode="numeric" autocomplete="off" aria-label="Zahl vor der Wurzel" value="${v(a.a1)}"><span>· √</span><input id="a2" class="s" inputmode="numeric" autocomplete="off" aria-label="Zahl unter der Wurzel" value="${v(a.a2)}">${t.post ? `<span>${t.post}</span>` : ''}</div><small class="muted">Links die Zahl vor der Wurzel, rechts die Zahl unter der Wurzel.</small>`;
+  if (t.type === 'frac') return `<div class="answer"><span class="fracin"><input id="a1" class="s" inputmode="numeric" autocomplete="off" aria-label="Zähler" value="${v(a.a1)}"><span class="fbar"></span><input id="a2" class="s" inputmode="numeric" autocomplete="off" aria-label="Nenner" value="${v(a.a2)}"></span></div><small class="muted">Oben der Zähler, unten der Nenner.</small>`;
   if (t.type === 'mc') return `<div class="mc">${t.options.map((o, k) => `<button class="opt ${a.k === k ? 'sel' : ''}" data-k="${k}">${o}</button>`).join('')}</div>`;
 }
 function taskHtml(t, head, a, extra = '') {
-  return `<div class="task ${t.sketch ? '' : 'nosketch'}">
+  const rev = SLOTS[t.slot] && SLOTS[t.slot].review;
+  return `${rev ? `<div class="revbadge">🔁 Wiederholung aus einem früheren Thema</div>` : ''}<div class="task ${t.sketch ? '' : 'nosketch'}">
     ${t.sketch ? `<div class="sketch">${t.sketch}</div>` : ''}
     <div>
       <div class="qtitle">${head}</div>
@@ -215,6 +217,7 @@ function renderPractice() {
   const head = `${SLOTS[t.slot].area} · ${SLOTS[t.slot].name}`;
   $('pCard').innerHTML = taskHtml(t, head, {},
     `<div class="btns">${t.type !== 'mc' ? '<button class="primary" id="pCheck">Prüfen ✓</button>' : ''}<button id="pHint">💡 Tipp</button></div><div id="fb"></div>`);
+  $('pCard').classList.toggle('review', !!SLOTS[t.slot].review);
   wireBegriffe($('pCard'));
   if (t.type === 'mc') $('pCard').querySelectorAll('.opt').forEach(b => b.onclick = () => { P.a = { k: +b.dataset.k }; practiceCheck(); });
   else {
@@ -253,6 +256,7 @@ function practiceCheck() {
   $('pNext').focus();
 }
 function practiceSummary() {
+  $('pCard').classList.remove('review');
   notePractice(p => { if (P.slot === null) p.rounds++; else p.drills++; });
   const n = P.first.filter(x => x === 2).length, N = P.tasks.length;
   const pts = P.fg.reduce((s, g) => s + points(g), 0), full = P.slot === null;
@@ -307,12 +311,13 @@ function renderTest() {
   const st = T.st, t = T.tasks[st.cur];
   $('tWho').textContent = `Test · Nr. ${T.nr}`;
   $('tCount').textContent = `${st.answers.filter(answered).length} von ${SLOTS.length} beantwortet`;
-  $('tNav').innerHTML = T.tasks.map((_, i) => `<button class="${answered(st.answers[i]) ? 'done' : ''} ${i === st.cur ? 'cur' : ''}" data-i="${i}" aria-label="Aufgabe ${i + 1}">${i + 1}</button>`).join('');
+  $('tNav').innerHTML = T.tasks.map((x, i) => `<button class="${answered(st.answers[i]) ? 'done' : ''} ${i === st.cur ? 'cur' : ''} ${SLOTS[x.slot].review ? 'rev' : ''}" data-i="${i}" aria-label="Aufgabe ${i + 1}">${SLOTS[x.slot].review ? '🔁' : i + 1}</button>`).join('');
   $('tNav').querySelectorAll('button').forEach(b => b.onclick = () => { captureCurrent(); st.cur = +b.dataset.i; saveT(); renderTest(); });
   $('tCard').innerHTML = taskHtml(t, `Aufgabe ${st.cur + 1} · ${SLOTS[t.slot].area}`, st.answers[st.cur],
     `<div class="btns">${st.cur > 0 ? '<button id="tPrev">← Zurück</button>' : ''}${st.cur + 1 < SLOTS.length ? '<button class="primary" id="tNext">Weiter →</button>' : '<button class="testbtn" id="tEnd">Fertig → Abgeben</button>'}</div>
      <p class="muted" style="margin-top:10px"><small>Deine Antworten werden automatisch gespeichert. Du kannst jederzeit zu einer Aufgabe zurückspringen.</small></p>`);
   $('tCard').classList.remove('hidden'); $('tConfirm').classList.add('hidden');
+  $('tCard').classList.toggle('review', !!SLOTS[t.slot].review);
   wireBegriffe($('tCard'));
   if (t.type === 'mc') $('tCard').querySelectorAll('.opt').forEach(b => b.onclick = () => {
     st.answers[st.cur] = { k: +b.dataset.k }; saveT();

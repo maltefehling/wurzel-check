@@ -332,7 +332,7 @@ function renderResults() {
   const empty = '<td colspan="' + (SLOTS.length + 5) + '" class="muted">noch kein Testergebnis</td>';
   const cell = g => g === 2 ? '<td class="g2">✓</td>' : g === 1 ? '<td class="g1">½</td>' : '<td class="g0">✗</td>';
   $('resTable').innerHTML = `<thead><tr><th rowspan="2">Nr.</th><th colspan="${SLOTS.length + 5}">Test</th><th colspan="6">Übung</th></tr>
-    <tr><th>Punkte</th><th>Note</th>${SLOTS.map((s, i) => `<th title="${esc(s.area + ' · ' + s.name)}">${i + 1}</th>`).join('')}<th>verl.</th><th>Min.</th><th>Quelle</th>
+    <tr><th>Punkte</th><th>Note</th>${SLOTS.map((s, i) => `<th title="${esc(s.area + ' · ' + s.name)}" style="${s.review ? 'background:#ccfbf1' : ''}">${s.review ? '🔁' : i + 1}</th>`).join('')}<th>verl.</th><th>Min.</th><th>Quelle</th>
     <th title="komplette Probetests">Runden</th><th title="Fünfer-Übungen zu einem Thema">Themen</th><th title="beim 1. Versuch richtig">%</th><th>Tage</th><th>Min.</th><th>zuletzt</th></tr></thead>
     <tbody>${nrs.map(nr => { const r = t.results[nr]; return `<tr class="${r && r.answers ? 'click' : ''}" data-nr="${nr}"><td><b>${nr}</b></td>${r ? `<td><b>${fmtPts(r.pts)}</b></td><td><b>${fmtNote(noteFor(r.pts))}</b></td>
       ${r.grades.map(cell).join('')}<td style="${r.tabs ? 'color:var(--bad);font-weight:700' : ''}">${r.tabs ? r.tabs + '×' : '–'}</td><td>${r.minutes ?? '–'}</td><td>${r.src}</td>` : empty}${pcell(nr)}</tr>`; }).join('')}

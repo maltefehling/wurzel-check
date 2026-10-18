@@ -581,6 +581,26 @@ G.wurzelDezBasis = function () {
   };
 };
 
+/* ---------- Wiederholung aus früheren Themen ----------
+   Brüche addieren: nur EIN Bruch muss erweitert werden, Summe < 1 und schon gekürzt (kein Kürzen nötig) */
+const frac = (z, n) => `<span class="fr"><span>${z}</span><span>${n}</span></span>`;
+const ggT = (a, b) => b ? ggT(b, a % b) : a;
+G.bruchAdd = function () {
+  let b, k, d, a, c;
+  do {
+    b = pick([2, 3, 4, 5, 6]); k = pick([2, 3]); d = b * k;
+    a = R(1, b - 1); c = R(1, d - 1);
+  } while (d > 12 || ggT(a, b) !== 1 || ggT(c, d) !== 1 || a * k + c >= d || ggT(a * k + c, d) !== 1);
+  const z = a * k + c, first = rand() < .5;   // mal steht der zu erweiternde Bruch vorne, mal hinten
+  const term = first ? `${frac(a, b)} + ${frac(c, d)}` : `${frac(c, d)} + ${frac(a, b)}`;
+  const ex = `${frac(a, b)} = ${frac(a * k, d)}`;
+  return {
+    title: 'Brüche addieren', q: `Berechne.<div class="big">${term} = ?</div>`, type: 'frac', n: z, d,
+    hint: `Die Nenner sind verschieden. ${d} ist ein Vielfaches von ${b}: Erweitere ${frac(a, b)} mit ${k}, dann haben beide den Nenner ${d}. Danach Zähler addieren, der Nenner bleibt.`,
+    sol: [`Erweitern mit ${k}: ${ex}`, `${first ? `${frac(a * k, d)} + ${frac(c, d)}` : `${frac(c, d)} + ${frac(a * k, d)}`} = ${frac(z, d)}`]
+  };
+};
+
 /* Nur in der Übung: eine Nachkommastelle prüfen statt mühsam suchen (Taschenrechner erlaubt) */
 G.einschachtelnDez = function () {
   let n; do { n = R(11, 150); } while (Number.isInteger(Math.sqrt(n)));
@@ -589,7 +609,7 @@ G.einschachtelnDez = function () {
   const d1 = s => (s / 10).toFixed(1).replace('.', ',');
   const iv = a => `${d1(a)} < ${sq(n)} < ${d1(a + 1)}`;
   const est = Math.round((f + (n - f * f) / (2 * f + 1)) * 10);   // lineare Schätzung als guter Startwert
-  const cand = [k - 1, k + 1, f * 10 + (9 - (k - f * 10)), k + 3, k - 3, k + 5].filter(a => a !== k && a >= 10 * f - 1);
+  const cand = [k - 1, k + 1, f * 10 + (9 - (k - f * 10)), k + 3, k - 3, k + 5].filter(a => a !== k && a >= 10 * f && a + 1 <= 10 * (f + 1));   // nur Intervalle innerhalb der genannten ganzen Zahlen
   const opts = shuffle([...new Set([k, ...cand])].slice(0, 4).map(iv));
   const sqr = a => fmt(Number(((a / 10) ** 2).toFixed(4)));
   return {
@@ -604,7 +624,8 @@ G.einschachtelnDez = function () {
 const MIT_TR = new Set(['exponent', 'groesstePotenz', 'quadratFlaeche', 'wuerfelVolumen', 'figurQuadrate',
   'wuerfelOberflaeche', 'wuerfelKette', 'rechteckWurzel', 'wuerfelGebilde', 'gebildeOberflaeche', 'trAnzeige', 'einschachtelnDez']);
 
-/* ---------- Die 12 Aufgabenplätze (je einer pro Kompetenz aus dem Kompetenzraster) ----------
+/* ---------- Die Aufgabenplätze: 12 zum aktuellen Thema (je einer pro Kompetenz aus dem Kompetenzraster)
+   + 1 Wiederholung aus einem früheren Thema (review: true, farblich abgesetzt, im Test immer zuletzt) ----------
    Reihenfolge NICHT ändern, solange Ergebnisse aus laufenden Tests eingesammelt werden. */
 /* area = Abschnitt im Kompetenzraster, name = Themenname für „Gezielt üben“.
    Die „Ich kann …“-Sätze stehen in RASTER und müssen WORTGLEICH im Kompetenzraster stehen. */
@@ -620,7 +641,8 @@ const SLOTS = [
   { area: 'S. 20–21 Wurzeln multiplizieren und dividieren', name: 'Wurzeln multiplizieren und dividieren', gens: ['wurzelProdukt', 'wurzelQuotient'] },
   { area: 'S. 22–23 Rechnen mit Quadratwurzeln (a)', name: 'Teilweise Wurzel ziehen', gens: ['teilweise'] },
   { area: 'S. 22–23 Rechnen mit Quadratwurzeln (b)', name: 'Wurzelterme zusammenfassen', gens: ['zusammenfassen'] },
-  { area: 'S. 24–25 Kubikwurzeln und n-te Wurzeln', name: 'Kubikwurzeln und n-te Wurzeln', gens: ['kubikwurzel', 'nteWurzel', 'wuerfelVolumen'] }
+  { area: 'S. 24–25 Kubikwurzeln und n-te Wurzeln', name: 'Kubikwurzeln und n-te Wurzeln', gens: ['kubikwurzel', 'nteWurzel', 'wuerfelVolumen'] },
+  { area: 'Wiederholung: Bruchrechnung', name: 'Brüche addieren', gens: ['bruchAdd'], review: true }   // bei künftigen Tests hier ein anderes altes Thema eintragen
 ];
 const RASTER = {
   produktPotenz: 'Produkte als Potenz angeben und berechnen.',
@@ -636,6 +658,7 @@ const RASTER = {
   wurzelProdukt: 'die Rechengesetze für Wurzeln anwenden.', wurzelQuotient: 'die Rechengesetze für Wurzeln anwenden.',
   teilweise: 'teilweise die Wurzel ziehen.',
   zusammenfassen: 'Terme durch Ausklammern vereinfachen und zusammenfassen.',
+  bruchAdd: 'Brüche mit verschiedenen Nennern addieren.',
   kubikwurzel: 'Kubikwurzeln berechnen und vereinfachen.', nteWurzel: 'n-te Wurzeln berechnen.', wuerfelVolumen: 'Berechnungen an Würfeln durchführen.'
 };
 
@@ -654,7 +677,7 @@ function rasterReport(tasks, grades, withButtons = false) {
   return `<div class="rreport">${html}</div></div>`;
 }
 
-/* Übung: echter Zufall. slotIdx = null → alle 12 Plätze; sonst n Aufgaben eines Platzes */
+/* Übung: echter Zufall. slotIdx = null → alle Plätze; sonst n Aufgaben eines Platzes */
 function practiceTasks(slotIdx = null, n = 5) {
   rand = Math.random;
   const gens = s => s.practiceGens || s.gens;   // die Übung darf mehr Varianten haben als der Test
@@ -689,6 +712,10 @@ function grade(t, ans) {
     if (!ok) return 0;
     return (Math.abs(v1) >= 1 && Math.abs(v1) < 10) ? 2 : 1;
   }
+  if (t.type === 'frac') {
+    if (isNaN(v1) || isNaN(v2) || v2 === 0) return -1;
+    return eq(v1 / v2, t.n / t.d) ? 2 : 0;   // jede gleichwertige Schreibweise zählt
+  }
   if (t.type === 'surd') {
     const c = String(ans.a1 || '').trim() === '' ? 1 : v1;
     if (isNaN(c) || isNaN(v2)) return -1;
@@ -712,6 +739,7 @@ function answerText(t, ans) {
   if (t.type === 'num') return a1 ? `${a1}${t.post ? ' ' + t.post : ''}` : '—';
   if (t.type === 'sci') return (a1 || a2) ? `${a1 || '?'} · 10<sup>${a2 || '?'}</sup>` : '—';
   if (t.type === 'surd') return (a1 || a2) ? `${a1}${sq(a2 || '?')}${t.post ? ' ' + t.post : ''}` : '—';
+  if (t.type === 'frac') return (a1 || a2) ? frac(a1 || '?', a2 || '?') : '—';
   return '—';
 }
 function correctText(t) {
@@ -719,6 +747,7 @@ function correctText(t) {
   if (t.type === 'num') return `${fmt(t.ans)}${t.post ? ' ' + t.post : ''}`;
   if (t.type === 'sci') return `${fmt(t.m)} · ${tenPow(t.e)}`;
   if (t.type === 'surd') return `${surd(t.c, t.r)}${t.post ? ' ' + t.post : ''}`;
+  if (t.type === 'frac') return frac(t.n, t.d);
 }
 
 /* ---------- Testcode: 4 Zufallsziffern + 1 Prüfziffer (fängt Tippfehler ab) ---------- */
@@ -797,7 +826,7 @@ function makeShortCode(code, nr, tabs, grades) {
   return `${nr}-${g}-${tabs}-${sig(`S|${code}|${nr}|${g}|${tabs}`)}`;
 }
 function parseShortCode(txt, code) {
-  const m = String(txt).trim().toUpperCase().replace(/\s/g, '').match(/^(\d{3})-([012]{12})-(\d{1,3})-([0-9A-Z]{5})$/);
+  const m = String(txt).trim().toUpperCase().replace(/\s/g, '').match(new RegExp(`^(\\d{3})-([012]{${SLOTS.length}})-(\\d{1,3})-([0-9A-Z]{5})$`));
   if (!m) return null;
   const [, nr, g, tabs, s] = m;
   return { nr: +nr, grades: [...g].map(Number), tabs: +tabs, valid: sig(`S|${code}|${+nr}|${g}|${+tabs}`) === s };
