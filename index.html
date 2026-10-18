@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wurzel-Check</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+
+<!-- ============ START ============ -->
+<section id="vHome">
+  <h1>Wurzel-Check</h1>
+  <p class="muted" style="margin-top:0">Hochzahlen und Wurzeln · 12 Aufgaben, eine zu jedem Punkt des Kompetenzrasters</p>
+  <div id="resumeBox"></div>
+  <div class="modes">
+    <button class="card mode" id="goPractice"><b>🔁 Probetest üben</b>
+      Alle 12 Aufgaben wie im Test – jedes Mal mit neuen Zahlen. Du bekommst sofort Rückmeldung, Tipps und den Lösungsweg. So oft du willst.</button>
+    <button class="card mode test" id="goTest"><b>📝 Test schreiben</b>
+      Nur in der Stunde mit dem Testcode deiner Lehrkraft. Keine Rückmeldung während des Tests.</button>
+  </div>
+  <div class="card">
+    <h2>Gezielt üben</h2>
+    <p class="muted" style="margin:.2rem 0">Fünf Aufgaben zu genau einem Thema:</p>
+    <div class="topics" id="topics"></div>
+  </div>
+</section>
+
+<!-- ============ ÜBUNG ============ -->
+<section id="vPractice" class="hidden">
+  <div class="bar"><span class="chip" id="pProgress"></span><span class="chip" id="pScore"></span><span class="spacer"></span><button id="pHome">← Startseite</button></div>
+  <div class="card" id="pCard"></div>
+</section>
+
+<!-- ============ TEST-ANMELDUNG ============ -->
+<section id="vLogin" class="hidden">
+  <div class="card">
+    <h2>📝 Test schreiben</h2>
+    <p>Melde dich mit deiner <b>Nummer auf der Klassenliste</b> an – <b>nicht</b> mit deinem Namen. Den <b>Testcode</b> zeigt dir deine Lehrkraft.</p>
+    <label for="inNr">Deine Nummer auf der Klassenliste</label>
+    <input id="inNr" class="field" inputmode="numeric" autocomplete="off" maxlength="2" placeholder="z. B. 7">
+    <label for="inCode">Testcode</label>
+    <input id="inCode" class="field" inputmode="numeric" autocomplete="off" maxlength="5" placeholder="5 Ziffern">
+    <div id="loginErr" class="err"></div>
+    <div class="btns"><button class="testbtn" id="loginGo">Weiter</button><button id="loginBack">← Startseite</button></div>
+    <div id="loginConfirm"></div>
+  </div>
+</section>
+
+<!-- ============ TEST ============ -->
+<section id="vTest" class="hidden">
+  <div class="bar"><span class="chip test" id="tWho"></span><span class="chip" id="tCount"></span><span class="spacer"></span><button class="testbtn" id="tSubmit">Abgeben</button></div>
+  <div id="tWarn"></div>
+  <div class="nav" id="tNav"></div>
+  <div class="card" id="tCard"></div>
+  <div class="card hidden" id="tConfirm"></div>
+</section>
+
+<!-- ============ ABGEGEBEN ============ -->
+<section id="vDone" class="hidden">
+  <div class="card result" id="doneCard"></div>
+</section>
+
+<footer>Wurzel-Check · eigene Aufgaben, zufällig erzeugt · keine Namen, keine Anmeldung, kein Server – Ergebnisse gibst du per QR-Code direkt an deine Lehrkraft</footer>
+</main>
+
+<script src="lib/qrcode.js"></script>
+<script src="aufgaben.js"></script>
+<script>
+"use strict";
+const VIEWS = ['vHome', 'vPractice', 'vLogin', 'vTest', 'vDone'];
+function show(v) { VIEWS.forEach(x => $(x).classList.toggle('hidden', x !== v)); window.scrollTo(0, 0); }
+const store = {
+  get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+};
+const ACTIVE = 'wurzelcheck.aktiv';
+const tkey = (code, nr) => `wurzelcheck.test.${code}.${nr}`;
+
+/* ---------- gemeinsame Eingabe-Bausteine ---------- */
+function inputHtml(t, a = {}) {
+  const v = x => (x == null ? '' : String(x).replace(/"/g, '&quot;'));
+  if (t.type === 'num') return `<div class="answer">${t.pre ? `<span>${t.pre}</span>` : ''}<input id="a1" inputmode="decimal" autocomplete="off" aria-label="Antwort" value="${v(a.a1)}">${t.post ? `<span>${t.post}</span>` : ''}</div>`;
+  if (t.type === 'sci') return `<div class="answer"><input id="a1" class="s" inputmode="decimal" autocomplete="off" aria-label="Zahl vor der Zehnerpotenz" value="${v(a.a1)}"><span>· 10</span><sup><input id="a2" class="s" inputmode="numeric" autocomplete="off" aria-label="Exponent" style="font-size:1rem;width:3.2em" value="${v(a.a2)}"></sup></div>`;
+  if (t.type === 'surd') return `<div class="answer"><input id="a1" class="s" inputmode="numeric" autocomplete="off" aria-label="Zahl vor der Wurzel" value="${v(a.a1)}"><span>· √</span><input id="a2" class="s" inputmode="numeric" autocomplete="off" aria-label="Zahl unter der Wurzel" value="${v(a.a2)}">${t.post ? `<span>${t.post}</span>` : ''}</div><small class="muted">Links die Zahl vor der Wurzel, rechts die Zahl unter der Wurzel.</small>`;
+  if (t.type === 'mc') return `<div class="mc">${t.options.map((o, k) => `<button class="opt ${a.k === k ? 'sel' : ''}" data-k="${k}">${o}</button>`).join('')}</div>`;
+}
+function taskHtml(t, head, a, extra = '') {
+  return `<div class="task ${t.sketch ? '' : 'nosketch'}">
+    ${t.sketch ? `<div class="sketch">${t.sketch}</div>` : ''}
+    <div>
+      <div class="qtitle">${head}</div>
+      <span class="trbadge ${t.tr ? 'ja' : 'nein'}">${t.tr ? '🧮 Taschenrechner erlaubt' : '✏️ ohne Taschenrechner'}</span>
+      <div class="q">${t.q}</div>
+      <div id="infoBox" class="infobox hidden"></div>
+      ${inputHtml(t, a || {})}
+      ${extra}
+    </div>
+  </div>`;
+}
+function wireBegriffe(root) {
+  root.querySelectorAll('.begriff').forEach(b => b.onclick = () => {
+    const box = $('infoBox'), same = !box.classList.contains('hidden') && box.dataset.b === b.dataset.b;
+    box.innerHTML = BEGRIFFE[b.dataset.b] || ''; box.dataset.b = b.dataset.b;
+    box.classList.toggle('hidden', same);
+  });
+}
+const readInputs = () => ({ a1: $('a1') ? $('a1').value : '', a2: $('a2') ? $('a2').value : '' });
+
+/* ================= STARTSEITE ================= */
+function renderHome() {
+  $('topics').innerHTML = SLOTS.map((s, i) => `<button data-i="${i}"><span class="nr">${i + 1}</span>${s.name}</button>`).join('');
+  $('topics').querySelectorAll('button').forEach(b => b.onclick = () => startPractice(+b.dataset.i));
+  const act = store.get(ACTIVE), st = act && store.get(tkey(act.code, act.nr));
+  $('resumeBox').innerHTML = st && !st.submitted
+    ? `<div class="card mode test"><b>📝 Dein Test läuft noch</b>Nr. ${st.nr} · Testcode ${st.code}<div class="btns"><button class="testbtn" id="resumeGo">Test fortsetzen</button></div></div>`
+    : st && st.submitted ? `<div class="card"><b>✅ Test abgegeben</b> (Nr. ${st.nr}) <button id="resumeGo" style="margin-left:8px">Ergebnis-Code noch einmal zeigen</button></div>` : '';
+  if ($('resumeGo')) $('resumeGo').onclick = () => openTest(st.code, st.nr);
+  show('vHome');
+}
+$('goPractice').onclick = () => startPractice(null);
+$('goTest').onclick = () => { $('loginErr').textContent = ''; $('loginConfirm').innerHTML = ''; show('vLogin'); $('inNr').focus(); };
+$('pHome').onclick = renderHome;
+$('loginBack').onclick = renderHome;
+
+/* ================= ÜBUNG ================= */
+let P = null;
+function startPractice(slot) {
+  P = { slot, tasks: practiceTasks(slot), i: 0, first: [], tries: 0, done: false, a: {} };
+  show('vPractice'); renderPractice();
+}
+function renderPractice() {
+  const t = P.tasks[P.i];
+  $('pProgress').textContent = `Aufgabe ${P.i + 1} von ${P.tasks.length}`;
+  $('pScore').textContent = `✓ beim 1. Versuch: ${P.first.filter(x => x === 2).length}`;
+  P.tries = 0; P.done = false; P.a = {};
+  const head = `${P.slot === null ? (t.slot + 1) + ' · ' : ''}${SLOTS[t.slot].name}`;
+  $('pCard').innerHTML = taskHtml(t, head, {},
+    `<div class="btns">${t.type !== 'mc' ? '<button class="primary" id="pCheck">Prüfen ✓</button>' : ''}<button id="pHint">💡 Tipp</button></div><div id="fb"></div>`);
+  wireBegriffe($('pCard'));
+  if (t.type === 'mc') $('pCard').querySelectorAll('.opt').forEach(b => b.onclick = () => { P.a = { k: +b.dataset.k }; practiceCheck(); });
+  else {
+    $('pCheck').onclick = () => { P.a = readInputs(); practiceCheck(); };
+    $('pCard').querySelectorAll('input').forEach(inp => inp.addEventListener('keydown', e => { if (e.key === 'Enter') { P.a = readInputs(); practiceCheck(); } }));
+    setTimeout(() => $('a1') && $('a1').focus({ preventScroll: true }), 50);
+  }
+  $('pHint').onclick = () => { if (!P.done) $('fb').innerHTML = `<div class="fb hint">💡 ${t.hint}</div>`; };
+}
+function practiceCheck() {
+  if (P.done) return;
+  const t = P.tasks[P.i], g = grade(t, P.a);
+  const solHtml = `<ol class="sol">${t.sol.map(s => `<li>${s}</li>`).join('')}</ol>`;
+  const next = `<div class="btns"><button class="primary" id="pNext">${P.i + 1 < P.tasks.length ? 'Nächste Aufgabe →' : 'Auswertung →'}</button></div>`;
+  if (g === -1) { $('fb').innerHTML = '<div class="fb warn">Bitte trage zuerst eine Antwort ein.</div>'; return; }
+  if (g === 1) { $('fb').innerHTML = `<div class="fb hint">Fast! Der Wert stimmt, aber die Form noch nicht. ${t.type === 'sci' ? 'Vor dem Komma muss genau eine Ziffer von 1 bis 9 stehen.' : 'Steckt unter der Wurzel noch eine Quadratzahl?'} Verbessere noch.</div>`; return; }
+  if (g === 2) {
+    if (P.tries === 0) P.first[P.i] = 2;
+    $('pScore').textContent = `✓ beim 1. Versuch: ${P.first.filter(x => x === 2).length}`;
+    if (t.type === 'mc') $('pCard').querySelectorAll('.opt').forEach(b => b.classList.toggle('sel', +b.dataset.k === P.a.k));
+    $('fb').innerHTML = `<div class="fb ok">✅ Richtig!${solHtml}</div>${next}`;
+  } else if (P.tries === 0) {
+    P.tries = 1; P.first[P.i] = 0;
+    if (t.type === 'mc') $('pCard').querySelectorAll('.opt').forEach(b => { if (+b.dataset.k === P.a.k) b.disabled = true; });
+    $('fb').innerHTML = `<div class="fb bad">Leider falsch. Schau dir den Tipp an und versuche es noch einmal.</div><div class="fb hint">💡 ${t.hint}</div>`;
+    return;
+  } else {
+    $('fb').innerHTML = `<div class="fb bad">Leider wieder falsch. Richtig ist: <b>${correctText(t)}</b>${solHtml}</div>${next}`;
+  }
+  P.done = true;
+  $('pCard').querySelectorAll('input,.opt,#pCheck,#pHint').forEach(x => x.disabled = true);
+  $('pNext').onclick = () => { P.i++; P.i < P.tasks.length ? renderPractice() : practiceSummary(); };
+  $('pNext').focus();
+}
+function practiceSummary() {
+  const n = P.first.filter(x => x === 2).length, N = P.tasks.length;
+  $('pProgress').textContent = 'Auswertung'; $('pScore').textContent = `${n} von ${N}`;
+  const wrong = P.tasks.map((t, i) => [t, i]).filter(([, i]) => P.first[i] !== 2);
+  $('pCard').innerHTML = `<div class="result">
+    <div class="score">${n} / ${N}</div>
+    <p>${n === N ? 'Alles beim ersten Versuch richtig – stark! 🎉' : n >= N * 0.75 ? 'Schon richtig gut! Übe die Themen unten noch einmal gezielt.' : 'Übe die Themen unten gezielt – dann gleich noch eine Runde!'}</p>
+    </div>
+    ${wrong.length ? `<h2>Noch einmal üben</h2><div class="topics">${[...new Set(wrong.map(([t]) => t.slot))].map(s => `<button data-i="${s}"><span class="nr">${s + 1}</span>${SLOTS[s].name}</button>`).join('')}</div>` : ''}
+    <div class="btns" style="margin-top:14px"><button class="primary" id="pAgain">🔁 Neue Runde mit neuen Zahlen</button><button id="pBack">← Startseite</button></div>`;
+  $('pCard').querySelectorAll('.topics button').forEach(b => b.onclick = () => startPractice(+b.dataset.i));
+  $('pAgain').onclick = () => startPractice(P.slot);
+  $('pBack').onclick = renderHome;
+}
+
+/* ================= TEST ================= */
+let T = null;   // { code, nr, tasks, st }
+$('loginGo').onclick = () => {
+  const nr = parseInt($('inNr').value, 10), code = $('inCode').value.trim();
+  $('loginConfirm').innerHTML = '';
+  if (!(nr >= 1 && nr <= 40)) { $('loginErr').textContent = 'Bitte gib deine Nummer auf der Klassenliste ein (1 bis 40).'; return; }
+  if (!validCode(code)) { $('loginErr').textContent = 'Dieser Testcode stimmt nicht. Schau noch einmal genau hin.'; return; }
+  $('loginErr').textContent = '';
+  $('loginConfirm').innerHTML = `<div class="fb warn" style="margin-top:14px">Du bist <b>Nr. ${nr}</b> auf der Klassenliste. Stimmt das?
+    <div class="btns"><button class="testbtn" id="lcYes">Ja, Test starten</button><button id="lcNo">Nein, ändern</button></div></div>`;
+  $('lcYes').onclick = () => openTest(code, nr);
+  $('lcNo').onclick = () => { $('loginConfirm').innerHTML = ''; $('inNr').focus(); };
+};
+['inNr', 'inCode'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter') $('loginGo').click(); }));
+
+function openTest(code, nr) {
+  let st = store.get(tkey(code, nr));
+  if (!st) st = { code, nr, answers: Array(SLOTS.length).fill(null), tabs: 0, start: Date.now(), submitted: false, cur: 0 };
+  store.set(tkey(code, nr), st); store.set(ACTIVE, { code, nr });
+  T = { code, nr, tasks: testTasks(code, nr), st };
+  if (st.submitted) return renderDone();
+  show('vTest'); renderTest();
+}
+const saveT = () => store.set(tkey(T.code, T.nr), T.st);
+function answered(a) { return a && (a.k != null || String(a.a1 || '').trim() !== '' || String(a.a2 || '').trim() !== ''); }
+function captureCurrent() {
+  if (!T || T.st.submitted) return;
+  const t = T.tasks[T.st.cur];
+  if (t.type !== 'mc' && $('a1')) { T.st.answers[T.st.cur] = readInputs(); saveT(); }
+}
+function renderTest() {
+  const st = T.st, t = T.tasks[st.cur];
+  $('tWho').textContent = `Test · Nr. ${T.nr}`;
+  $('tCount').textContent = `${st.answers.filter(answered).length} von ${SLOTS.length} beantwortet`;
+  $('tNav').innerHTML = T.tasks.map((_, i) => `<button class="${answered(st.answers[i]) ? 'done' : ''} ${i === st.cur ? 'cur' : ''}" data-i="${i}" aria-label="Aufgabe ${i + 1}">${i + 1}</button>`).join('');
+  $('tNav').querySelectorAll('button').forEach(b => b.onclick = () => { captureCurrent(); st.cur = +b.dataset.i; saveT(); renderTest(); });
+  $('tCard').innerHTML = taskHtml(t, `Aufgabe ${st.cur + 1} · ${SLOTS[t.slot].name}`, st.answers[st.cur],
+    `<div class="btns">${st.cur > 0 ? '<button id="tPrev">← Zurück</button>' : ''}${st.cur + 1 < SLOTS.length ? '<button class="primary" id="tNext">Weiter →</button>' : '<button class="testbtn" id="tEnd">Fertig → Abgeben</button>'}</div>
+     <p class="muted" style="margin-top:10px"><small>Deine Antworten werden automatisch gespeichert. Du kannst jederzeit zu einer Aufgabe zurückspringen.</small></p>`);
+  $('tCard').classList.remove('hidden'); $('tConfirm').classList.add('hidden');
+  wireBegriffe($('tCard'));
+  if (t.type === 'mc') $('tCard').querySelectorAll('.opt').forEach(b => b.onclick = () => {
+    st.answers[st.cur] = { k: +b.dataset.k }; saveT();
+    $('tCard').querySelectorAll('.opt').forEach(x => x.classList.toggle('sel', x === b));
+    $('tCount').textContent = `${st.answers.filter(answered).length} von ${SLOTS.length} beantwortet`;
+    $('tNav').children[st.cur].classList.add('done');
+  });
+  else $('tCard').querySelectorAll('input').forEach(inp => {
+    inp.addEventListener('input', () => { captureCurrent(); $('tNav').children[st.cur].classList.toggle('done', answered(st.answers[st.cur])); $('tCount').textContent = `${st.answers.filter(answered).length} von ${SLOTS.length} beantwortet`; });
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter' && $('tNext')) $('tNext').click(); });
+  });
+  if ($('tPrev')) $('tPrev').onclick = () => { captureCurrent(); st.cur--; saveT(); renderTest(); };
+  if ($('tNext')) $('tNext').onclick = () => { captureCurrent(); st.cur++; saveT(); renderTest(); };
+  if ($('tEnd')) $('tEnd').onclick = askSubmit;
+}
+$('tSubmit').onclick = askSubmit;
+function askSubmit() {
+  captureCurrent();
+  const open = T.st.answers.map((a, i) => answered(a) ? null : i + 1).filter(Boolean);
+  $('tCard').classList.add('hidden'); $('tConfirm').classList.remove('hidden');
+  $('tConfirm').innerHTML = `<h2>Test abgeben?</h2>
+    ${open.length ? `<p class="err">Noch nicht beantwortet: Aufgabe ${open.join(', ')}</p>` : '<p>Du hast alle Aufgaben beantwortet.</p>'}
+    <p>Nach dem Abgeben kannst du nichts mehr ändern.</p>
+    <div class="btns"><button class="testbtn" id="cYes">Ja, endgültig abgeben</button><button id="cNo">Nein, zurück zum Test</button></div>`;
+  $('cNo').onclick = renderTest;
+  $('cYes').onclick = () => {
+    T.st.submitted = true; T.st.end = Date.now(); saveT(); renderDone();
+  };
+}
+document.addEventListener('visibilitychange', () => {
+  if (!T || T.st.submitted || $('vTest').classList.contains('hidden')) return;
+  if (document.hidden) { captureCurrent(); T.st.tabs++; saveT(); }
+  else if (T.st.tabs > 0) $('tWarn').innerHTML = `<div class="warnbanner">⚠️ Du hast den Test verlassen (${T.st.tabs}×). Das wird deiner Lehrkraft angezeigt.</div>`;
+});
+
+function renderDone() {
+  const st = T.st, grades = T.tasks.map((t, i) => grade(t, st.answers[i]));
+  const pts = grades.reduce((s, g) => s + points(g), 0);
+  const minutes = Math.max(1, Math.round(((st.end || Date.now()) - st.start) / 60000));
+  const payload = makePayload(T.code, T.nr, st.tabs, minutes, st.answers);
+  const short = makeShortCode(T.code, T.nr, st.tabs, grades);
+  let qrSvg = '';
+  try { const qr = qrcode(0, 'M'); qr.addData(payload); qr.make(); qrSvg = qr.createSvgTag({ cellSize: 4, margin: 2, scalable: true }); }
+  catch (e) { qrSvg = '<p class="err">QR-Code konnte nicht erzeugt werden – nutze den Code darunter.</p>'; }
+  const sym = g => g === 2 ? '<span class="g2">✓</span>' : g === 1 ? '<span class="g1">½</span>' : '<span class="g0">✗</span>';
+  $('doneCard').innerHTML = `
+    <h2>✅ Test abgegeben · Nr. ${T.nr}</h2>
+    <div class="score">${fmtPts(pts)} / ${SLOTS.length} Punkte</div>
+    <p><b>Zeige diesen QR-Code deiner Lehrkraft</b> – sie scannt ihn ein. Lass die Seite so lange offen.</p>
+    <div class="qrbox">${qrSvg}</div>
+    <p class="muted" style="margin:.2rem 0">Falls der Scan nicht klappt, diesen Code ansagen:</p>
+    <div class="shortcode">${short}</div>
+    <div class="reslist">${T.tasks.map((t, i) => `<div>${sym(grades[i])} ${i + 1}. ${SLOTS[t.slot].name}</div>`).join('')}</div>
+    <p class="muted"><small>½ = Wert richtig, aber nicht vollständig vereinfacht bzw. nicht in der verlangten Schreibweise.</small></p>
+    <div class="btns" style="justify-content:center"><button id="dHome">← Startseite</button></div>`;
+  $('dHome').onclick = renderHome;
+  show('vDone');
+}
+
+/* ---------- Start ---------- */
+renderHome();
+if (location.hash === '#test') $('goTest').click();
+</script>
+</body>
+</html>

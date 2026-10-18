@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Wurzel-Check · Lehrkraft</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+<h1>Wurzel-Check · Lehrkraft</h1>
+<p class="muted" style="margin-top:0">Alle Daten bleiben in diesem Browser auf diesem Gerät. Nichts wird hochgeladen.</p>
+
+<!-- ============ 1. TEST STARTEN ============ -->
+<div class="card">
+  <h2>1 · Test starten</h2>
+  <div class="row">
+    <label for="selTest" style="margin:0">Test:</label>
+    <select id="selTest" style="font:inherit;padding:.4rem;border-radius:8px;border:1px solid var(--line);max-width:100%"></select>
+    <button id="btnNew">➕ Neuen Test anlegen</button>
+  </div>
+  <div id="newBox" class="hidden" style="margin-top:10px">
+    <label for="inLabel">Bezeichnung (nur für dich, z. B. „9b – 4.11.“)</label>
+    <div class="row"><input id="inLabel" class="field" style="width:14em;letter-spacing:0;text-align:left;font-size:1.05rem"><button class="primary" id="btnCreate">Testcode erzeugen</button></div>
+  </div>
+  <div id="codeBox"></div>
+</div>
+
+<!-- ============ 2. EINSAMMELN ============ -->
+<div class="card" id="collectCard">
+  <h2>2 · Ergebnisse einsammeln</h2>
+  <p class="muted" style="margin-top:0">Schüler zeigen nach dem Abgeben einen QR-Code. Scanne ihn einfach nacheinander.</p>
+  <div class="btns"><button class="primary" id="btnCam">📷 Kamera starten</button><button id="btnCamStop" class="hidden">Kamera stoppen</button></div>
+  <div class="scanwrap" style="margin-top:10px"><video id="video" playsinline muted class="hidden"></video></div>
+  <canvas id="canvas" class="hidden"></canvas>
+  <label for="inShort">Oder Code von Hand eingeben (z. B. 7-222120222202-0-K3F9A)</label>
+  <div class="row"><input id="inShort" class="field" style="width:16em;font-size:1.05rem;letter-spacing:0" autocomplete="off"><button id="btnShort">Übernehmen</button></div>
+</div>
+
+<!-- ============ 3. ERGEBNISSE ============ -->
+<div class="card">
+  <div class="row"><h2 style="margin:0">3 · Ergebnisse</h2><span class="spacer" style="flex:1"></span>
+    <button id="btnCsv">⬇︎ CSV für TeacherTool / Excel</button><button class="danger" id="btnDel">Test löschen</button></div>
+  <div id="stats" style="margin:10px 0"></div>
+  <div style="overflow-x:auto"><table class="res" id="resTable"></table></div>
+  <p class="muted"><small>Klick auf eine Zeile zeigt die Aufgaben und Antworten dieses Schülers. ½ = Wert richtig, Form nicht (z. B. nicht ganz vereinfacht). „Hand“ = per Code eingetragen, dann ohne Einzelantworten.</small></p>
+</div>
+<div class="card hidden detail" id="detail"></div>
+
+<div id="beamer" class="beamer hidden"></div>
+<footer>Wurzel-Check · Lehrerseite</footer>
+</main>
+
+<script src="lib/qrcode.js"></script>
+<script src="lib/jsQR.js"></script>
+<script src="aufgaben.js"></script>
+<script>
+"use strict";
+const LKEY = 'wurzelcheck.lehrer';
+let D = { tests: [], active: null };
+try { const s = JSON.parse(localStorage.getItem(LKEY)); if (s) D = s; } catch (e) {}
+const saveD = () => { try { localStorage.setItem(LKEY, JSON.stringify(D)); } catch (e) { toast('Speichern nicht möglich (privater Modus?)', true); } };
+const cur = () => D.tests.find(t => t.code === D.active);
+const testUrl = () => new URL('./#test', location.href).href;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function toast(msg, bad = false) {
+  const el = document.createElement('div'); el.className = 'toast' + (bad ? ' bad' : ''); el.textContent = msg;
+  document.body.appendChild(el); setTimeout(() => el.remove(), 2600);
+}
+function beep(ok) {
+  try {
+    const a = new (window.AudioContext || window.webkitAudioContext)(), o = a.createOscillator(), g = a.createGain();
+    o.frequency.value = ok ? 880 : 220; g.gain.value = .08; o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime + .15);
+  } catch (e) {}
+}
+function qrSvg(text) { const q = qrcode(0, 'M'); q.addData(text); q.make(); return q.createSvgTag({ cellSize: 4, margin: 2, scalable: true }); }
+
+/* ---------- 1. Test starten ---------- */
+function renderTests() {
+  $('selTest').innerHTML = D.tests.length
+    ? D.tests.slice().reverse().map(t => `<option value="${t.code}" ${t.code === D.active ? 'selected' : ''}>${esc(t.label || 'ohne Bezeichnung')} · Code ${t.code} · ${Object.keys(t.results).length} Erg.</option>`).join('')
+    : '<option>— noch kein Test angelegt —</option>';
+  const t = cur();
+  $('codeBox').innerHTML = t ? `
+    <p style="margin:.8rem 0 0">Testcode für die Klasse:</p>
+    <div class="bigcode">${t.code}</div>
+    <p class="muted" style="text-align:center;margin:0">Schüler öffnen <b>${esc(testUrl())}</b>, geben ihre Listennummer und diesen Code ein.</p>
+    <div class="btns" style="justify-content:center"><button class="primary" id="btnBeamer">🖥 Beamer-Ansicht</button></div>` : '';
+  if ($('btnBeamer')) $('btnBeamer').onclick = showBeamer;
+  ['collectCard'].forEach(id => $(id).classList.toggle('hidden', !t));
+  renderResults();
+}
+$('selTest').onchange = () => { D.active = $('selTest').value; saveD(); $('detail').classList.add('hidden'); renderTests(); };
+$('btnNew').onclick = () => { $('newBox').classList.toggle('hidden'); $('inLabel').focus(); };
+$('btnCreate').onclick = () => {
+  let code; do { code = newTestCode(); } while (D.tests.some(t => t.code === code));
+  D.tests.push({ code, label: $('inLabel').value.trim(), created: Date.now(), results: {} });
+  D.active = code; saveD();
+  $('inLabel').value = ''; $('newBox').classList.add('hidden');
+  renderTests(); toast(`Neuer Test: Code ${code}`);
+};
+function showBeamer() {
+  const t = cur(); if (!t) return;
+  $('beamer').innerHTML = `
+    <div style="font-size:1.6rem;font-weight:700">📝 Wurzel-Check · Test</div>
+    <div style="font-size:1.3rem">1. QR-Code scannen &nbsp;·&nbsp; 2. <b>Listennummer</b> eingeben &nbsp;·&nbsp; 3. Testcode eingeben</div>
+    <div class="bigcode">${t.code}</div>
+    <div class="qrbox" style="margin:0">${qrSvg(testUrl())}</div>
+    <div class="muted">${esc(testUrl())}</div>
+    <button id="beamerClose" style="margin-top:8px">Schließen</button>`;
+  $('beamer').querySelector('.qrbox svg').style.width = 'min(36vh,300px)';
+  $('beamer').classList.remove('hidden');
+  $('beamerClose').onclick = () => $('beamer').classList.add('hidden');
+}
+
+/* ---------- 2. Einsammeln ---------- */
+let lastText = '', lastAt = 0;
+function handleScan(text) {
+  const now = Date.now();
+  if (text === lastText && now - lastAt < 4000) return;
+  lastText = text; lastAt = now;
+  const t = cur(); if (!t) return;
+  const p = parsePayload(text);
+  if (!p) { beep(false); return toast('Das ist kein Wurzel-Check-Ergebnis.', true); }
+  if (!p.valid) { beep(false); return toast(`Nr. ${p.nr}: Prüfsumme falsch – Code verändert?`, true); }
+  if (p.code !== t.code) { beep(false); return toast(`Nr. ${p.nr} hat einen anderen Testcode (${p.code}) eingegeben!`, true); }
+  const tasks = testTasks(p.code, p.nr), grades = tasks.map((x, i) => grade(x, p.answers[i]));
+  storeResult(t, { nr: p.nr, grades, tabs: p.tabs, minutes: p.minutes, answers: p.answers, src: 'QR' });
+}
+function storeResult(t, r) {
+  const pts = r.grades.reduce((s, g) => s + points(g), 0);
+  const old = t.results[r.nr];
+  if (old && JSON.stringify(old.grades) === JSON.stringify(r.grades) && old.tabs === r.tabs) { beep(true); toast(`Nr. ${r.nr} ist schon erfasst.`); return; }
+  t.results[r.nr] = Object.assign(r, { pts, at: Date.now() });
+  saveD(); beep(true);
+  toast(`${old ? 'Aktualisiert' : 'Erfasst'}: Nr. ${r.nr} · ${fmtPts(pts)}/${SLOTS.length} Punkte${r.tabs ? ` · ⚠️ ${r.tabs}× verlassen` : ''}`);
+  renderTests();
+}
+$('btnShort').onclick = () => {
+  const t = cur(); if (!t) return;
+  const txt = $('inShort').value;
+  const p = parseShortCode(txt, t.code);
+  if (!p) return toast('Format passt nicht: Nr-12 Ziffern-Zahl-Prüfcode', true);
+  if (!p.valid) return toast('Prüfcode stimmt nicht – Tippfehler oder anderer Test?', true);
+  storeResult(t, { nr: p.nr, grades: p.grades, tabs: p.tabs, minutes: null, answers: null, src: 'Hand' });
+  $('inShort').value = '';
+};
+$('inShort').addEventListener('keydown', e => { if (e.key === 'Enter') $('btnShort').click(); });
+
+let stream = null, scanTimer = 0;
+$('btnCam').onclick = async () => {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+  } catch (e) { return toast('Kamera nicht verfügbar oder nicht erlaubt.', true); }
+  const v = $('video'); v.srcObject = stream; v.classList.remove('hidden'); await v.play();
+  $('btnCam').classList.add('hidden'); $('btnCamStop').classList.remove('hidden');
+  const c = $('canvas'), ctx = c.getContext('2d', { willReadFrequently: true });
+  scanTimer = setInterval(() => {
+    if (v.readyState < 2) return;
+    const w = Math.min(v.videoWidth, 800), h = Math.round(v.videoHeight * w / v.videoWidth);
+    c.width = w; c.height = h; ctx.drawImage(v, 0, 0, w, h);
+    const res = jsQR(ctx.getImageData(0, 0, w, h).data, w, h, { inversionAttempts: 'dontInvert' });
+    if (res && res.data) handleScan(res.data);
+  }, 250);
+};
+$('btnCamStop').onclick = stopCam;
+function stopCam() {
+  clearInterval(scanTimer); if (stream) stream.getTracks().forEach(t => t.stop()); stream = null;
+  $('video').classList.add('hidden'); $('btnCam').classList.remove('hidden'); $('btnCamStop').classList.add('hidden');
+}
+
+/* ---------- 3. Ergebnisse ---------- */
+function renderResults() {
+  const t = cur();
+  if (!t) { $('resTable').innerHTML = ''; $('stats').innerHTML = '<span class="muted">Lege oben zuerst einen Test an.</span>'; return; }
+  const rs = Object.values(t.results).sort((a, b) => a.nr - b.nr);
+  if (!rs.length) { $('resTable').innerHTML = ''; $('stats').innerHTML = '<span class="muted">Noch keine Ergebnisse.</span>'; return; }
+  const avg = rs.reduce((s, r) => s + r.pts, 0) / rs.length;
+  const quote = SLOTS.map((_, i) => rs.reduce((s, r) => s + points(r.grades[i]), 0) / rs.length);
+  $('stats').innerHTML = `<b>${rs.length}</b> Ergebnisse · Durchschnitt <b>${fmtPts(Math.round(avg * 10) / 10)}</b> von ${SLOTS.length} Punkten`;
+  const cell = g => g === 2 ? '<td class="g2">✓</td>' : g === 1 ? '<td class="g1">½</td>' : '<td class="g0">✗</td>';
+  $('resTable').innerHTML = `<thead><tr><th>Nr.</th><th>Punkte</th><th>%</th>${SLOTS.map((s, i) => `<th title="${esc(s.name)}">${i + 1}</th>`).join('')}<th>verlassen</th><th>Min.</th><th>Quelle</th></tr></thead>
+    <tbody>${rs.map(r => `<tr class="${r.answers ? 'click' : ''}" data-nr="${r.nr}"><td><b>${r.nr}</b></td><td><b>${fmtPts(r.pts)}</b></td><td>${Math.round(100 * r.pts / SLOTS.length)}</td>
+      ${r.grades.map(cell).join('')}<td style="${r.tabs ? 'color:var(--bad);font-weight:700' : ''}">${r.tabs ? r.tabs + '×' : '–'}</td><td>${r.minutes ?? '–'}</td><td>${r.src}</td></tr>`).join('')}
+    <tr><td colspan="3"><b>Lösungsquote</b></td>${quote.map(q => `<td style="background:${q >= .75 ? '#ecfdf5' : q >= .5 ? '#fffbeb' : '#fef2f2'}">${Math.round(q * 100)}</td>`).join('')}<td colspan="3"></td></tr></tbody>`;
+  $('resTable').querySelectorAll('tr.click').forEach(tr => tr.onclick = () => showDetail(+tr.dataset.nr));
+}
+function showDetail(nr) {
+  const t = cur(), r = t.results[nr]; if (!r || !r.answers) return;
+  const tasks = testTasks(t.code, nr);
+  const sym = g => g === 2 ? '<span class="g2">✓ 1 P.</span>' : g === 1 ? '<span class="g1">½ P.</span>' : '<span class="g0">✗ 0 P.</span>';
+  $('detail').innerHTML = `<div class="row"><h2 style="margin:0">Nr. ${nr} · ${fmtPts(r.pts)}/${SLOTS.length} Punkte</h2><span style="flex:1"></span><button id="dClose">Schließen</button></div>
+    ${tasks.map((x, i) => `<div class="item"><div class="qtitle">Aufgabe ${i + 1} · ${SLOTS[i].name} · ${sym(r.grades[i])}</div>
+      <div class="q">${x.q}</div>
+      <div>Antwort: <b>${answerText(x, r.answers[i])}</b> &nbsp;·&nbsp; richtig: <b>${correctText(x)}</b></div>
+      <ol class="sol muted">${x.sol.map(s => `<li>${s}</li>`).join('')}</ol></div>`).join('')}`;
+  $('detail').classList.remove('hidden');
+  $('dClose').onclick = () => $('detail').classList.add('hidden');
+  $('detail').scrollIntoView({ behavior: 'smooth' });
+}
+$('btnCsv').onclick = () => {
+  const t = cur(); if (!t) return;
+  const rs = Object.values(t.results).sort((a, b) => a.nr - b.nr);
+  const lines = [['Nr', 'Punkte', 'Prozent', ...SLOTS.map((_, i) => 'A' + (i + 1)), 'verlassen', 'Minuten'].join(';')];
+  rs.forEach(r => lines.push([r.nr, fmtPts(r.pts), Math.round(100 * r.pts / SLOTS.length), ...r.grades.map(g => fmtPts(points(g))), r.tabs, r.minutes ?? ''].join(';')));
+  const blob = new Blob(['﻿' + lines.join('\r\n') + '\r\n'], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `wurzel-check_${(t.label || 'test').replace(/[^\wäöüÄÖÜß-]+/g, '_')}_${t.code}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+};
+$('btnDel').onclick = () => {
+  const t = cur(); if (!t) return;
+  if (!confirm(`Test „${t.label || t.code}“ mit ${Object.keys(t.results).length} Ergebnissen von diesem Gerät löschen?`)) return;
+  D.tests = D.tests.filter(x => x !== t); D.active = D.tests.length ? D.tests[D.tests.length - 1].code : null;
+  saveD(); $('detail').classList.add('hidden'); renderTests();
+};
+
+renderTests();
+</script>
+</body>
+</html>
