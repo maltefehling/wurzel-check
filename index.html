@@ -102,7 +102,18 @@ function getPractice() {
   if (!p) p = { dev: Math.random().toString(36).slice(2, 8), rounds: 0, drills: 0, tasks: 0, correct: 0, days: [], minutes: 0, last: '' };
   return p;
 }
-function notePractice(fn) { const p = getPractice(); fn(p); const d = today(); if (!p.days.includes(d)) p.days.push(d); p.last = d; store.set(PKEY, p); }
+/* Gezählt wird nur echtes Üben: eine Aufgabe ab 5 s Bearbeitungszeit, ein Übungstag ab 3 solchen Aufgaben,
+   eine Runde/Themen-Übung nur, wenn mindestens 80 % ihrer Aufgaben echt bearbeitet wurden. Bloßes Öffnen zählt nie. */
+const MIN_SECS = 5, DAY_MIN_TASKS = 3, ROUND_SHARE = 0.8;
+function notePractice(fn) { const p = getPractice(); fn(p); store.set(PKEY, p); }
+function noteTask(correctFirst, secs) {
+  notePractice(p => {
+    p.tasks++; if (correctFirst) p.correct++; p.minutes += Math.min(5, secs / 60);   // höchstens 5 min pro Aufgabe anrechnen
+    const d = today(); p.dayTasks = p.dayTasks || {}; p.dayTasks[d] = (p.dayTasks[d] || 0) + 1;
+    if (p.dayTasks[d] >= DAY_MIN_TASKS && !p.days.includes(d)) p.days.push(d);
+    p.last = d;
+  });
+}
 
 /* ---------- Automatisches Aufräumen: Tests nach 14 Tagen, Übung nach 90 Tagen ohne Aktivität ---------- */
 function cleanup() {
@@ -206,7 +217,7 @@ $('loginBack').onclick = renderHome;
 /* ================= ÜBUNG ================= */
 let P = null;
 function startPractice(slot) {
-  P = { slot, tasks: practiceTasks(slot), i: 0, first: [], fg: [], tries: 0, done: false, a: {}, t0: Date.now() };
+  P = { slot, tasks: practiceTasks(slot), i: 0, first: [], fg: [], tries: 0, done: false, a: {}, t0: Date.now(), counted: 0 };
   show('vPractice'); renderPractice();
 }
 function renderPractice() {
@@ -253,15 +264,15 @@ function practiceCheck() {
     $('fb').innerHTML = `<div class="fb bad">Leider wieder falsch. Richtig ist: <b>${correctText(t)}</b>${solHtml}</div>${next}`;
   }
   P.done = true;
-  const mins = Math.min(5, (Date.now() - P.t0) / 60000);   // höchstens 5 min pro Aufgabe anrechnen
-  notePractice(p => { p.tasks++; if (P.first[P.i] === 2) p.correct++; p.minutes += mins; });
+  const secs = (Date.now() - P.t0) / 1000;
+  if (secs >= MIN_SECS) { noteTask(P.first[P.i] === 2, secs); P.counted++; }   // Durchklicken zählt nicht
   $('pCard').querySelectorAll('input,.opt,#pCheck,#pHint').forEach(x => x.disabled = true);
   $('pNext').onclick = () => { P.i++; P.i < P.tasks.length ? renderPractice() : practiceSummary(); };
   $('pNext').focus();
 }
 function practiceSummary() {
   $('pCard').classList.remove('review');
-  notePractice(p => { if (P.slot === null) p.rounds++; else p.drills++; });
+  if (P.counted >= ROUND_SHARE * P.tasks.length) notePractice(p => { if (P.slot === null) p.rounds++; else p.drills++; });
   const n = P.first.filter(x => x === 2).length, N = P.tasks.length;
   const pts = P.fg.reduce((s, g) => s + points(g), 0), full = P.slot === null;
   $('pProgress').textContent = 'Auswertung'; $('pScore').textContent = full ? `${fmtPts(pts)} von ${N} Punkten` : `${n} von ${N}`;
