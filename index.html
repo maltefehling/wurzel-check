@@ -203,7 +203,7 @@ $('loginBack').onclick = renderHome;
 /* ================= ÜBUNG ================= */
 let P = null;
 function startPractice(slot) {
-  P = { slot, tasks: practiceTasks(slot), i: 0, first: [], tries: 0, done: false, a: {}, t0: Date.now() };
+  P = { slot, tasks: practiceTasks(slot), i: 0, first: [], fg: [], tries: 0, done: false, a: {}, t0: Date.now() };
   show('vPractice'); renderPractice();
 }
 function renderPractice() {
@@ -229,6 +229,7 @@ function practiceCheck() {
   const solHtml = `<ol class="sol">${t.sol.map(s => `<li>${s}</li>`).join('')}</ol>`;
   const next = `<div class="btns"><button class="primary" id="pNext">${P.i + 1 < P.tasks.length ? 'Nächste Aufgabe →' : 'Auswertung →'}</button></div>`;
   if (g === -1) { $('fb').innerHTML = '<div class="fb warn">Bitte trage zuerst eine Antwort ein.</div>'; return; }
+  if (P.fg[P.i] === undefined) P.fg[P.i] = g;   // erste Abgabe zählt für die Note – wie im Test
   if (g === 1) { $('fb').innerHTML = `<div class="fb hint">Fast! Der Wert stimmt, aber die Form noch nicht. ${t.type === 'sci' ? 'Vor dem Komma muss genau eine Ziffer von 1 bis 9 stehen.' : 'Steckt unter der Wurzel noch eine Quadratzahl?'} Verbessere noch.</div>`; return; }
   if (g === 2) {
     if (P.tries === 0) P.first[P.i] = 2;
@@ -253,10 +254,13 @@ function practiceCheck() {
 function practiceSummary() {
   notePractice(p => { if (P.slot === null) p.rounds++; else p.drills++; });
   const n = P.first.filter(x => x === 2).length, N = P.tasks.length;
-  $('pProgress').textContent = 'Auswertung'; $('pScore').textContent = `${n} von ${N}`;
+  const pts = P.fg.reduce((s, g) => s + points(g), 0), full = P.slot === null;
+  $('pProgress').textContent = 'Auswertung'; $('pScore').textContent = full ? `${fmtPts(pts)} von ${N} Punkten` : `${n} von ${N}`;
   const wrong = P.tasks.map((t, i) => [t, i]).filter(([, i]) => P.first[i] !== 2);
   $('pCard').innerHTML = `<div class="result">
-    <div class="score">${n} / ${N}</div>
+    ${full ? `<div class="score">${fmtPts(pts)} / ${N} Punkte</div>
+      <div class="note">Das wäre die Note <b>${fmtNote(noteFor(pts))}</b></div>
+      <p class="muted"><small>Gewertet wird wie im Test: jeweils dein erster Versuch, ½ Punkt, wenn der Wert stimmt, aber nicht vollständig vereinfacht ist.</small></p>` : `<div class="score">${n} / ${N}</div>`}
     <p>${n === N ? 'Alles beim ersten Versuch richtig – stark! 🎉' : n >= N * 0.75 ? 'Schon richtig gut! Übe die Themen unten noch einmal gezielt.' : 'Übe die Themen unten gezielt – dann gleich noch eine Runde!'}</p>
     </div>
     ${wrong.length ? `<h2>Noch einmal üben</h2><div class="topics">${[...new Set(wrong.map(([t]) => t.slot))].map(s => `<button data-i="${s}"><span class="nr">${s + 1}</span>${SLOTS[s].name}</button>`).join('')}</div>` : ''}
@@ -354,6 +358,7 @@ function renderDone() {
   $('doneCard').innerHTML = `
     <h2>✅ Test abgegeben · Nr. ${T.nr}</h2>
     <div class="score">${fmtPts(pts)} / ${SLOTS.length} Punkte</div>
+    <div class="note">Note <b>${fmtNote(noteFor(pts))}</b></div>
     <p><b>Zeige diesen QR-Code deiner Lehrkraft</b> – sie scannt ihn ein. Lass die Seite so lange offen.</p>
     <div class="qrbox">${qrHtml}</div>
     <p class="muted" style="margin:.2rem 0">Falls der Scan nicht klappt, diesen Code ansagen:</p>

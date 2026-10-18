@@ -626,6 +626,9 @@ function grade(t, ans) {
 }
 const points = g => g === 2 ? 1 : g === 1 ? 0.5 : 0;
 const fmtPts = p => String(p).replace('.', ',');
+/* Note linear (Realschule): volle Punktzahl = 1,0, halbe Punktzahl = 3,5, null Punkte = 6,0; auf eine Dezimale gerundet */
+const noteFor = (pts, max = SLOTS.length) => Math.round((6 - 5 * pts / max) * 10 + 1e-9) / 10;
+const fmtNote = n => n.toFixed(1).replace('.', ',');
 
 /* Antwort lesbar machen (für Lehrerseite und Ergebnisanzeige) */
 function answerText(t, ans) {

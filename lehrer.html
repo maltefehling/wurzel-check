@@ -36,7 +36,8 @@
 <div class="card" id="collectCard">
   <h2>2 · Ergebnisse einsammeln</h2>
   <p class="muted" style="margin-top:0">Schüler zeigen nach dem Abgeben einen QR-Code (enthält auch ihre Übungsstatistik). Wer auf einem anderen Gerät geübt hat, zeigt zusätzlich den „Übungsnachweis“ von der Startseite. Beides kannst du jederzeit scannen, auch schon vor dem Test.</p>
-  <div class="btns"><button class="primary" id="btnCam">📷 Kamera starten</button><button id="btnCamStop" class="hidden">Kamera stoppen</button></div>
+  <div class="btns"><button class="testbtn" id="btnStation">🖥 Scanstation (Gerät steht vorne)</button><button class="primary" id="btnCam">📷 Selbst herumgehen und scannen</button><button id="btnCamStop" class="hidden">Kamera stoppen</button></div>
+  <p class="muted"><small>Scanstation: Stell das iPad (Frontkamera) oder einen Laptop mit Webcam vorne hin. Wer fertig ist, kommt nach vorne und hält den QR-Code kurz vor die Kamera. Angezeigt wird nur „Nr. … erfasst“, keine Punkte.</small></p>
   <div class="scanwrap" style="margin-top:10px"><video id="video" playsinline muted class="hidden"></video></div>
   <canvas id="canvas" class="hidden"></canvas>
   <label for="inShort">Oder Code von Hand eingeben (z. B. 417-222120222202-0-K3F9A)</label>
@@ -56,6 +57,20 @@
 
 <div id="beamer" class="beamer hidden"></div>
 <div id="printArea"></div>
+<div id="station" class="station hidden">
+  <div class="stHead"><b>📝 Wurzel-Check · Abgabe</b><span style="flex:1"></span>
+    <select id="stFacing"><option value="user">Frontkamera</option><option value="environment">Rückkamera</option></select>
+    <button id="stClose">Beenden</button></div>
+  <div class="stBody">
+    <video id="stVideo" playsinline muted></video>
+    <div class="stSide">
+      <h3>Halte deinen QR-Code vor die Kamera</h3>
+      <div>Erfasst</div><div class="stCount" id="stCount"></div>
+      <div style="margin-top:14px">Es fehlen noch:</div><div class="nrgrid" id="stMissing"></div>
+    </div>
+  </div>
+  <div id="stFlash" class="stFlash hidden"></div>
+</div>
 <footer>Wurzel-Check · Lehrerseite</footer>
 </main>
 
@@ -156,6 +171,15 @@ function showBeamer() {
 }
 
 /* ---------- 2. Einsammeln ---------- */
+/* Rückmeldung: normal als Toast mit Details, an der Scanstation groß und ohne Punkte (Umstehende sehen mit) */
+let station = false;
+function say(msg, kind = 'ok', pub = '') {
+  beep(kind === 'ok');
+  if (!station) return toast(msg, kind !== 'ok');
+  const f = $('stFlash'); f.className = 'stFlash' + (kind === 'ok' ? '' : ' ' + kind); f.textContent = pub || msg;
+  clearTimeout(say.t); say.t = setTimeout(() => f.classList.add('hidden'), kind === 'ok' ? 1600 : 3200);
+  renderStation();
+}
 let lastText = '', lastAt = 0;
 function handleScan(text) {
   const now = Date.now();
@@ -163,16 +187,18 @@ function handleScan(text) {
   lastText = text; lastAt = now;
   const t = cur(); if (!t) return;
   const p = parsePayload(text);
-  if (!p) { beep(false); return toast('Das ist kein Wurzel-Check-Code.', true); }
-  if (!p.valid) { beep(false); return toast(`Nr. ${p.nr}: Prüfsumme falsch – Code verändert?`, true); }
-  if (!validNr(p.nr)) { beep(false); return toast(`Ungültige Nummer ${p.nr}.`, true); }
-  const foreign = t.numbers && t.numbers.length && !t.numbers.includes(p.nr) ? ` · ⚠️ Nr. ${p.nr} steht nicht auf deiner Nummernliste` : '';
+  if (!p) return say('Das ist kein Wurzel-Check-Code.', 'bad', '✗ Kein Wurzel-Check-Code');
+  if (!p.valid) return say(`Nr. ${p.nr}: Prüfsumme falsch – Code verändert?`, 'bad', `✗ Nr. ${p.nr}: Code ungültig – bitte zur Lehrkraft`);
+  if (!validNr(p.nr)) return say(`Ungültige Nummer ${p.nr}.`, 'bad', `✗ Ungültige Nummer – bitte zur Lehrkraft`);
+  const foreign = t.numbers && t.numbers.length && !t.numbers.includes(p.nr);
+  const fTxt = foreign ? ` · ⚠️ Nr. ${p.nr} steht nicht auf deiner Nummernliste` : '';
   if (p.practice) storePractice(t, p.nr, p.practice);
   if (p.kind === 'practice') {
-    saveD(); beep(true); renderTests();
-    return toast(`Übungsnachweis Nr. ${p.nr}: ${p.practice.rounds} Runden, ${p.practice.drills} Themen, ${p.practice.days} Tage${foreign}`, !!foreign);
+    saveD(); renderTests();
+    return say(`Übungsnachweis Nr. ${p.nr}: ${p.practice.rounds} Runden, ${p.practice.drills} Themen, ${p.practice.days} Tage${fTxt}`, foreign ? 'warn' : 'ok',
+      foreign ? `⚠ Nr. ${p.nr} steht nicht auf der Liste – bitte zur Lehrkraft` : `✓ Übungsnachweis Nr. ${p.nr} erfasst`);
   }
-  if (p.code !== t.code) { saveD(); beep(false); return toast(`Nr. ${p.nr} hat einen anderen Testcode (${p.code}) eingegeben! Übungsdaten wurden übernommen.`, true); }
+  if (p.code !== t.code) { saveD(); return say(`Nr. ${p.nr} hat einen anderen Testcode (${p.code}) eingegeben! Übungsdaten wurden übernommen.`, 'bad', `✗ Nr. ${p.nr}: falscher Testcode – bitte zur Lehrkraft`); }
   const tasks = testTasks(p.code, p.nr), grades = tasks.map((x, i) => grade(x, p.answers[i]));
   storeResult(t, { nr: p.nr, grades, tabs: p.tabs, minutes: p.minutes, answers: p.answers, src: 'QR' }, foreign);
 }
@@ -190,13 +216,14 @@ function practiceSum(t, nr) {
   devs.forEach(d => { ['rounds', 'drills', 'tasks', 'correct', 'days', 'minutes'].forEach(k => s[k] += d[k]); if (d.last > s.last) s.last = d.last; });
   return s;
 }
-function storeResult(t, r, foreign = '') {
+function storeResult(t, r, foreign = false) {
   const pts = r.grades.reduce((s, g) => s + points(g), 0);
   const old = t.results[r.nr];
-  if (old && JSON.stringify(old.grades) === JSON.stringify(r.grades) && old.tabs === r.tabs) { beep(true); toast(`Nr. ${r.nr} ist schon erfasst.`); return; }
+  if (old && JSON.stringify(old.grades) === JSON.stringify(r.grades) && old.tabs === r.tabs) return say(`Nr. ${r.nr} ist schon erfasst.`, 'ok', `✓ Nr. ${r.nr} war schon erfasst`);
   t.results[r.nr] = Object.assign(r, { pts, at: Date.now() });
-  saveD(); beep(true);
-  toast(`${old ? 'Aktualisiert' : 'Erfasst'}: Nr. ${r.nr} · ${fmtPts(pts)}/${SLOTS.length} Punkte${r.tabs ? ` · ⚠️ ${r.tabs}× verlassen` : ''}${foreign}`, !!foreign);
+  saveD();
+  say(`${old ? 'Aktualisiert' : 'Erfasst'}: Nr. ${r.nr} · ${fmtPts(pts)}/${SLOTS.length} Punkte · Note ${fmtNote(noteFor(pts))}${r.tabs ? ` · ⚠️ ${r.tabs}× verlassen` : ''}${foreign ? ` · ⚠️ Nr. ${r.nr} steht nicht auf deiner Nummernliste` : ''}`,
+    foreign ? 'warn' : 'ok', foreign ? `⚠ Nr. ${r.nr} erfasst – steht nicht auf der Liste, bitte zur Lehrkraft` : `✓ Nr. ${r.nr} erfasst`);
   renderTests();
 }
 $('btnShort').onclick = () => {
@@ -205,31 +232,55 @@ $('btnShort').onclick = () => {
   const p = parseShortCode(txt, t.code);
   if (!p) return toast('Format passt nicht: Nummer-12 Ziffern-Zahl-Prüfcode', true);
   if (!p.valid) return toast('Prüfcode stimmt nicht – Tippfehler oder anderer Test?', true);
-  storeResult(t, { nr: p.nr, grades: p.grades, tabs: p.tabs, minutes: null, answers: null, src: 'Hand' });
+  storeResult(t, { nr: p.nr, grades: p.grades, tabs: p.tabs, minutes: null, answers: null, src: 'Hand' }, t.numbers && t.numbers.length && !t.numbers.includes(p.nr));
   $('inShort').value = '';
 };
 $('inShort').addEventListener('keydown', e => { if (e.key === 'Enter') $('btnShort').click(); });
 
-let stream = null, scanTimer = 0;
-$('btnCam').onclick = async () => {
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
-  } catch (e) { return toast('Kamera nicht verfügbar oder nicht erlaubt.', true); }
-  const v = $('video'); v.srcObject = stream; v.classList.remove('hidden'); await v.play();
-  $('btnCam').classList.add('hidden'); $('btnCamStop').classList.remove('hidden');
+/* Kamera: eine Schleife für die normale Ansicht und die Scanstation */
+let stream = null, scanTimer = 0, camVideo = null;
+async function startCam(video, facing) {
+  stopCam();
+  try { stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facing }, audio: false }); }
+  catch (e) { toast('Kamera nicht verfügbar oder nicht erlaubt.', true); return false; }
+  camVideo = video; video.srcObject = stream; video.classList.remove('hidden'); await video.play();
   const c = $('canvas'), ctx = c.getContext('2d', { willReadFrequently: true });
   scanTimer = setInterval(() => {
-    if (v.readyState < 2) return;
-    const w = Math.min(v.videoWidth, 800), h = Math.round(v.videoHeight * w / v.videoWidth);
-    c.width = w; c.height = h; ctx.drawImage(v, 0, 0, w, h);
+    if (video.readyState < 2) return;
+    const w = Math.min(video.videoWidth, 800), h = Math.round(video.videoHeight * w / video.videoWidth);
+    c.width = w; c.height = h; ctx.drawImage(video, 0, 0, w, h);
     const res = jsQR(ctx.getImageData(0, 0, w, h).data, w, h, { inversionAttempts: 'dontInvert' });
     if (res && res.data) handleScan(res.data);
   }, 250);
-};
-$('btnCamStop').onclick = stopCam;
+  return true;
+}
 function stopCam() {
   clearInterval(scanTimer); if (stream) stream.getTracks().forEach(t => t.stop()); stream = null;
-  $('video').classList.add('hidden'); $('btnCam').classList.remove('hidden'); $('btnCamStop').classList.add('hidden');
+  if (camVideo) { camVideo.srcObject = null; if (camVideo === $('video')) camVideo.classList.add('hidden'); }
+  $('btnCam').classList.remove('hidden'); $('btnCamStop').classList.add('hidden');
+}
+$('btnCam').onclick = async () => { if (await startCam($('video'), 'environment')) { $('btnCam').classList.add('hidden'); $('btnCamStop').classList.remove('hidden'); } };
+$('btnCamStop').onclick = stopCam;
+
+/* Scanstation: Gerät steht vorne, Schüler halten ihren QR-Code vor die Kamera */
+$('btnStation').onclick = async () => {
+  station = true; $('station').classList.remove('hidden'); renderStation();
+  try { document.documentElement.requestFullscreen && await document.documentElement.requestFullscreen(); } catch (e) {}
+  startCam($('stVideo'), $('stFacing').value);
+};
+$('stFacing').onchange = () => startCam($('stVideo'), $('stFacing').value);
+$('stClose').onclick = () => {
+  station = false; stopCam(); $('station').classList.add('hidden'); $('stFlash').classList.add('hidden');
+  try { document.fullscreenElement && document.exitFullscreen(); } catch (e) {}
+  renderTests();
+};
+function renderStation() {
+  const t = cur(); if (!t || !station) return;
+  const done = Object.keys(t.results).map(Number);
+  const list = t.numbers && t.numbers.length ? t.numbers : null;
+  $('stCount').textContent = list ? `${done.filter(n => list.includes(n)).length} von ${list.length}` : `${done.length}`;
+  const missing = list ? list.filter(n => !done.includes(n)) : [];
+  $('stMissing').innerHTML = list ? (missing.length ? missing.map(n => `<span>${n}</span>`).join('') : '<b>Alle erfasst ✓</b>') : '<span class="muted">(keine Nummernliste)</span>';
 }
 
 /* ---------- 3. Ergebnisse ---------- */
@@ -241,14 +292,14 @@ function renderResults() {
   if (!nrs.length) { $('resTable').innerHTML = ''; $('stats').innerHTML = '<span class="muted">Noch keine Ergebnisse.</span>'; return; }
   const avg = rs.length ? rs.reduce((s, r) => s + r.pts, 0) / rs.length : 0;
   const quote = SLOTS.map((_, i) => rs.length ? rs.reduce((s, r) => s + points(r.grades[i]), 0) / rs.length : 0);
-  $('stats').innerHTML = `<b>${rs.length}</b> Testergebnisse${rs.length ? ` · Durchschnitt <b>${fmtPts(Math.round(avg * 10) / 10)}</b> von ${SLOTS.length} Punkten` : ''} · Übungsdaten von <b>${Object.keys(t.practice || {}).length}</b> Nummern`;
+  $('stats').innerHTML = `<b>${rs.length}</b> Testergebnisse${rs.length ? ` · Durchschnitt <b>${fmtPts(Math.round(avg * 10) / 10)}</b> von ${SLOTS.length} Punkten · Notenschnitt <b>${fmtNote(Math.round(rs.reduce((x, r) => x + noteFor(r.pts), 0) / rs.length * 10) / 10)}</b>` : ''} · Übungsdaten von <b>${Object.keys(t.practice || {}).length}</b> Nummern`;
   const pcell = nr => { const p = practiceSum(t, nr); return p ? `<td>${p.rounds}</td><td>${p.drills}</td><td>${p.tasks ? Math.round(100 * p.correct / p.tasks) : '–'}</td><td>${p.days}</td><td>${Math.round(p.minutes)}</td><td>${p.last ? p.last.slice(8, 10) + '.' + p.last.slice(5, 7) + '.' : '–'}</td>` : '<td colspan="6" class="muted">keine Übungsdaten</td>'; };
   const empty = '<td colspan="' + (SLOTS.length + 5) + '" class="muted">noch kein Testergebnis</td>';
   const cell = g => g === 2 ? '<td class="g2">✓</td>' : g === 1 ? '<td class="g1">½</td>' : '<td class="g0">✗</td>';
   $('resTable').innerHTML = `<thead><tr><th rowspan="2">Nr.</th><th colspan="${SLOTS.length + 5}">Test</th><th colspan="6">Übung</th></tr>
-    <tr><th>Punkte</th><th>%</th>${SLOTS.map((s, i) => `<th title="${esc(s.name)}">${i + 1}</th>`).join('')}<th>verl.</th><th>Min.</th><th>Quelle</th>
+    <tr><th>Punkte</th><th>Note</th>${SLOTS.map((s, i) => `<th title="${esc(s.name)}">${i + 1}</th>`).join('')}<th>verl.</th><th>Min.</th><th>Quelle</th>
     <th title="komplette Probetests">Runden</th><th title="Fünfer-Übungen zu einem Thema">Themen</th><th title="beim 1. Versuch richtig">%</th><th>Tage</th><th>Min.</th><th>zuletzt</th></tr></thead>
-    <tbody>${nrs.map(nr => { const r = t.results[nr]; return `<tr class="${r && r.answers ? 'click' : ''}" data-nr="${nr}"><td><b>${nr}</b></td>${r ? `<td><b>${fmtPts(r.pts)}</b></td><td>${Math.round(100 * r.pts / SLOTS.length)}</td>
+    <tbody>${nrs.map(nr => { const r = t.results[nr]; return `<tr class="${r && r.answers ? 'click' : ''}" data-nr="${nr}"><td><b>${nr}</b></td>${r ? `<td><b>${fmtPts(r.pts)}</b></td><td><b>${fmtNote(noteFor(r.pts))}</b></td>
       ${r.grades.map(cell).join('')}<td style="${r.tabs ? 'color:var(--bad);font-weight:700' : ''}">${r.tabs ? r.tabs + '×' : '–'}</td><td>${r.minutes ?? '–'}</td><td>${r.src}</td>` : empty}${pcell(nr)}</tr>`; }).join('')}
     ${rs.length ? `<tr><td colspan="3"><b>Lösungsquote</b></td>${quote.map(q => `<td style="background:${q >= .75 ? '#ecfdf5' : q >= .5 ? '#fffbeb' : '#fef2f2'}">${Math.round(q * 100)}</td>`).join('')}<td colspan="9"></td></tr>` : ''}</tbody>`;
   $('resTable').querySelectorAll('tr.click').forEach(tr => tr.onclick = () => showDetail(+tr.dataset.nr));
@@ -257,7 +308,7 @@ function showDetail(nr) {
   const t = cur(), r = t.results[nr]; if (!r || !r.answers) return;
   const tasks = testTasks(t.code, nr);
   const sym = g => g === 2 ? '<span class="g2">✓ 1 P.</span>' : g === 1 ? '<span class="g1">½ P.</span>' : '<span class="g0">✗ 0 P.</span>';
-  $('detail').innerHTML = `<div class="row"><h2 style="margin:0">Nr. ${nr} · ${fmtPts(r.pts)}/${SLOTS.length} Punkte</h2><span style="flex:1"></span><button id="dClose">Schließen</button></div>
+  $('detail').innerHTML = `<div class="row"><h2 style="margin:0">Nr. ${nr} · ${fmtPts(r.pts)}/${SLOTS.length} Punkte · Note ${fmtNote(noteFor(r.pts))}</h2><span style="flex:1"></span><button id="dClose">Schließen</button></div>
     ${tasks.map((x, i) => `<div class="item"><div class="qtitle">Aufgabe ${i + 1} · ${SLOTS[i].name} · ${sym(r.grades[i])}</div>
       <div class="q">${x.q}</div>
       <div>Antwort: <b>${answerText(x, r.answers[i])}</b> &nbsp;·&nbsp; richtig: <b>${correctText(x)}</b></div>
@@ -269,11 +320,11 @@ function showDetail(nr) {
 $('btnCsv').onclick = () => {
   const t = cur(); if (!t) return;
   const nrs = [...new Set([...Object.keys(t.results), ...Object.keys(t.practice || {})].map(Number))].sort((a, b) => a - b);
-  const lines = [['Nr', 'Punkte', 'Prozent', ...SLOTS.map((_, i) => 'A' + (i + 1)), 'verlassen', 'Minuten',
+  const lines = [['Nr', 'Punkte', 'Note', ...SLOTS.map((_, i) => 'A' + (i + 1)), 'verlassen', 'Minuten',
     'Uebung_Runden', 'Uebung_Themen', 'Uebung_Aufgaben', 'Uebung_Prozent_richtig', 'Uebung_Tage', 'Uebung_Minuten', 'Uebung_zuletzt'].join(';')];
   nrs.forEach(nr => {
     const r = t.results[nr], p = practiceSum(t, nr);
-    lines.push([nr, ...(r ? [fmtPts(r.pts), Math.round(100 * r.pts / SLOTS.length), ...r.grades.map(g => fmtPts(points(g))), r.tabs, r.minutes ?? ''] : Array(SLOTS.length + 4).fill('')),
+    lines.push([nr, ...(r ? [fmtPts(r.pts), fmtNote(noteFor(r.pts)), ...r.grades.map(g => fmtPts(points(g))), r.tabs, r.minutes ?? ''] : Array(SLOTS.length + 4).fill('')),
       ...(p ? [p.rounds, p.drills, p.tasks, p.tasks ? Math.round(100 * p.correct / p.tasks) : '', p.days, Math.round(p.minutes), p.last] : Array(7).fill(''))].join(';'));
   });
   const blob = new Blob(['﻿' + lines.join('\r\n') + '\r\n'], { type: 'text/csv;charset=utf-8' });
