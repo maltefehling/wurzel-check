@@ -558,9 +558,28 @@ G.nteWurzel = function () {
   };
 };
 
+/* Nur in der Übung: eine Nachkommastelle prüfen statt mühsam suchen (Taschenrechner erlaubt) */
+G.einschachtelnDez = function () {
+  let n; do { n = R(11, 150); } while (Number.isInteger(Math.sqrt(n)));
+  const f = Math.floor(Math.sqrt(n));
+  let k = Math.floor(Math.sqrt(100 * n)); while (k * k > 100 * n) k--; while ((k + 1) * (k + 1) <= 100 * n) k++;   // exakt: k² ≤ 100n < (k+1)²
+  const d1 = s => (s / 10).toFixed(1).replace('.', ',');
+  const iv = a => `${d1(a)} < ${sq(n)} < ${d1(a + 1)}`;
+  const est = Math.round((f + (n - f * f) / (2 * f + 1)) * 10);   // lineare Schätzung als guter Startwert
+  const cand = [k - 1, k + 1, f * 10 + (9 - (k - f * 10)), k + 3, k - 3, k + 5].filter(a => a !== k && a >= 10 * f - 1);
+  const opts = shuffle([...new Set([k, ...cand])].slice(0, 4).map(iv));
+  const sqr = a => fmt(Number(((a / 10) ** 2).toFixed(4)));
+  return {
+    title: 'Auf eine Nachkommastelle', q: `${sq(n)} liegt zwischen ${f} und ${f + 1}. Zwischen welchen Zahlen liegt ${sq(n)} <b>genauer</b>?`,
+    type: 'mc', options: opts, ans: iv(k),
+    hint: `Schätze zuerst: ${n} liegt ${n - f * f < (f + 1) * (f + 1) - n ? `näher an ${f * f} = ${f}², also liegt ${sq(n)} eher knapp über ${f}` : `näher an ${(f + 1) * (f + 1)} = ${f + 1}², also liegt ${sq(n)} eher knapp unter ${f + 1}`}. Rechne mit dem Taschenrechner ${d1(est)}² und dann die Nachbarn – so musst du nicht alle Zahlen von ${d1(10 * f + 1)} an durchprobieren.`,
+    sol: [`${d1(k)}² = ${sqr(k)} &lt; ${n}`, `${d1(k + 1)}² = ${sqr(k + 1)} &gt; ${n}`, `also ${iv(k)}`]
+  };
+};
+
 /* Taschenrechner erlaubt, wo sonst schriftliches Rechnen die Zeit frisst (Regel der Wurzel-Regatta) */
 const MIT_TR = new Set(['exponent', 'groesstePotenz', 'quadratFlaeche', 'wuerfelVolumen', 'figurQuadrate',
-  'wuerfelOberflaeche', 'wuerfelKette', 'rechteckWurzel', 'wuerfelGebilde', 'gebildeOberflaeche', 'trAnzeige']);
+  'wuerfelOberflaeche', 'wuerfelKette', 'rechteckWurzel', 'wuerfelGebilde', 'gebildeOberflaeche', 'trAnzeige', 'einschachtelnDez']);
 
 /* ---------- Die 12 Aufgabenplätze (je einer pro Kompetenz aus dem Kompetenzraster) ----------
    Reihenfolge NICHT ändern, solange Ergebnisse aus laufenden Tests eingesammelt werden. */
@@ -574,7 +593,7 @@ const SLOTS = [
   { area: 'S. 12–13 Zehnerpotenzen', name: 'Taschenrechneranzeige', gens: ['trAnzeige'] },
   { area: 'S. 14–15 Quadratwurzeln', name: 'Quadratwurzeln bestimmen', gens: ['wurzelGanz', 'wurzelDez'] },
   { area: 'S. 14–15 Quadratwurzeln', name: 'Seiten- und Kantenlängen', gens: ['quadratFlaeche', 'wuerfelOberflaeche'] },
-  { area: 'S. 16–17 Bestimmen von Quadratwurzeln', name: 'Wurzeln näherungsweise bestimmen', gens: ['einschachteln'] },
+  { area: 'S. 16–17 Bestimmen von Quadratwurzeln', name: 'Wurzeln näherungsweise bestimmen', gens: ['einschachteln'], practiceGens: ['einschachteln', 'einschachtelnDez'] },   // im Test nur ganze Zahlen
   { area: 'S. 20–21 Wurzeln multiplizieren und dividieren', name: 'Wurzeln multiplizieren und dividieren', gens: ['wurzelProdukt', 'wurzelQuotient'] },
   { area: 'S. 22–23 Rechnen mit Quadratwurzeln (a)', name: 'Teilweise Wurzel ziehen', gens: ['teilweise'] },
   { area: 'S. 22–23 Rechnen mit Quadratwurzeln (b)', name: 'Wurzelterme zusammenfassen', gens: ['zusammenfassen'] },
@@ -590,7 +609,7 @@ const RASTER = {
   wurzelGanz: 'Quadratwurzeln bestimmen.', wurzelDez: 'Quadratwurzeln bestimmen.',
   quadratFlaeche: 'Seiten- und Kantenlängen von Quadraten und Würfeln durch Wurzelziehen bestimmen.',
   wuerfelOberflaeche: 'Seiten- und Kantenlängen von Quadraten und Würfeln durch Wurzelziehen bestimmen.',
-  einschachteln: 'Quadratwurzeln näherungsweise bestimmen.',
+  einschachteln: 'Quadratwurzeln näherungsweise bestimmen.', einschachtelnDez: 'Quadratwurzeln näherungsweise bestimmen.',
   wurzelProdukt: 'die Rechengesetze für Wurzeln anwenden.', wurzelQuotient: 'die Rechengesetze für Wurzeln anwenden.',
   teilweise: 'teilweise die Wurzel ziehen.',
   zusammenfassen: 'Terme durch Ausklammern vereinfachen und zusammenfassen.',
@@ -615,8 +634,9 @@ function rasterReport(tasks, grades, withButtons = false) {
 /* Übung: echter Zufall. slotIdx = null → alle 12 Plätze; sonst n Aufgaben eines Platzes */
 function practiceTasks(slotIdx = null, n = 5) {
   rand = Math.random;
-  if (slotIdx === null) return shuffle(SLOTS.map((s, i) => Object.assign(makeTask(pick(s.gens)), { slot: i })));   // Übung gemischt, Test fest
-  return Array.from({ length: n }, () => Object.assign(makeTask(pick(SLOTS[slotIdx].gens)), { slot: slotIdx }));
+  const gens = s => s.practiceGens || s.gens;   // die Übung darf mehr Varianten haben als der Test
+  if (slotIdx === null) return shuffle(SLOTS.map((s, i) => Object.assign(makeTask(pick(gens(s))), { slot: i })));   // Übung gemischt, Test fest
+  return Array.from({ length: n }, () => Object.assign(makeTask(pick(gens(SLOTS[slotIdx]))), { slot: slotIdx }));
 }
 
 /* Test: Aufgabentyp hängt nur vom Testcode ab (gleich für die ganze Klasse),
