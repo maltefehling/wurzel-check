@@ -45,6 +45,7 @@
   </div>
   <div class="scanwrap" style="margin-top:10px"><video id="video" playsinline muted class="hidden"></video></div>
   <canvas id="canvas" class="hidden"></canvas>
+  <div id="collectCount" class="counter"></div>
   <label for="inShort">Oder Code von Hand eingeben (z. B. 417-222120222202-0-K3F9A)</label>
   <div class="row"><input id="inShort" class="field" style="width:16em;font-size:1.05rem;letter-spacing:0" autocomplete="off"><button id="btnShort">Übernehmen</button></div>
 </div>
@@ -52,7 +53,8 @@
 <!-- ============ 3. ERGEBNISSE ============ -->
 <div class="card">
   <div class="row"><h2 style="margin:0">3 · Ergebnisse</h2><span class="spacer" style="flex:1"></span>
-    <button id="btnCsv">⬇︎ CSV für TeacherTool / Excel</button><button class="danger" id="btnDel">Test löschen</button></div>
+    <button class="primary" id="btnGrades">📄 Notenliste (Drucken / PDF)</button><button id="btnCsv">⬇︎ CSV für Excel</button><button class="danger" id="btnDel">Test löschen</button></div>
+  <p class="muted" style="margin:.4rem 0"><small>Gespeichert wird jeder Scan sofort hier im Browser dieses Geräts (nicht im Internet). Safari kann Daten von Webseiten löschen, die man länger nicht geöffnet hat – sichere die Notenliste deshalb noch am Testtag als PDF.</small></p>
   <div id="stats" style="margin:10px 0"></div>
   <div style="overflow-x:auto"><table class="res" id="resTable"></table></div>
   <div id="csvReminder"></div>
@@ -93,6 +95,7 @@ const testUrl = () => new URL('./#test', location.href).href;
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 function toast(msg, bad = false) {
+  document.querySelectorAll('.toast').forEach(x => x.remove());
   const el = document.createElement('div'); el.className = 'toast' + (bad ? ' bad' : ''); el.textContent = msg;
   document.body.appendChild(el); setTimeout(() => el.remove(), 2600);
 }
@@ -126,6 +129,7 @@ function renderTests() {
   $('oldWarn').innerHTML = t && age > 30 ? `<div class="reminder">🗑 Dieser Test ist ${age} Tage alt. Wenn die Ergebnisse in TeacherTool stehen, lösche ihn bitte (unten „Test löschen“).</div>` : '';
   ['collectCard'].forEach(id => $(id).classList.toggle('hidden', !t));
   renderResults();
+  renderCount(t);
 }
 $('selTest').onchange = () => { D.active = $('selTest').value; saveD(); $('detail').classList.add('hidden'); renderTests(); };
 $('btnNew').onclick = () => {
@@ -144,6 +148,32 @@ function renderNrBox(t) {
   if ($('btnMoreNr')) $('btnMoreNr').onclick = () => { const pool = ALL_NRS.filter(n => !t.numbers.includes(n)); t.numbers = t.numbers.concat(pool.sort(() => Math.random() - .5).slice(0, 5)).sort((a, b) => a - b); saveD(); renderTests(); };
   if ($('btnPrint')) $('btnPrint').onclick = () => printNumbers(t);
 }
+/* Zähler „x von y eingesammelt“ – sichtbar in beiden Scan-Arten */
+function renderCount(t) {
+  if (!t) { $('collectCount').innerHTML = ''; return; }
+  const done = Object.keys(t.results).map(Number), list = t.numbers && t.numbers.length ? t.numbers : null;
+  const n = list ? done.filter(x => list.includes(x)).length : done.length;
+  const missing = list ? list.filter(x => !done.includes(x)) : [];
+  $('collectCount').innerHTML = `<div class="cnt"><b>${n}</b>${list ? ` von ${list.length}` : ''} Ergebnisse eingesammelt</div>
+    ${list ? (missing.length ? `<div class="muted" style="margin-top:4px">Es fehlen noch: ${missing.join(', ')}</div>` : '<div class="g2" style="margin-top:4px">Alle Nummern erfasst ✓</div>') : ''}`;
+}
+/* Notenliste: sortiert nach Nummer wie die gedruckte Lehrerliste, Namensspalte leer zum Übertragen von Hand */
+function printGrades(t) {
+  const nrs = [...new Set([...(t.numbers || []), ...Object.keys(t.results).map(Number)])].sort((a, b) => a - b);
+  const rs = Object.values(t.results);
+  const avgNote = rs.length ? fmtNote(Math.round(rs.reduce((x, r) => x + noteFor(r.pts), 0) / rs.length * 10) / 10) : '–';
+  const d = new Date().toLocaleDateString('de-DE');
+  $('printArea').innerHTML = `
+    <h2>Notenliste Wurzel-Check – ${esc(t.label || '')}</h2>
+    <p>Stand ${d} · Testcode ${t.code} · ${rs.length} Ergebnisse · Notenschnitt ${avgNote} · Note linear: volle Punktzahl 1,0, halbe Punktzahl 3,5</p>
+    <table class="keylist gradelist"><thead><tr><th>Nr.</th><th>Name</th><th>Punkte (von ${SLOTS.length})</th><th>Note</th><th>verlassen</th><th>Übung: Runden / Themen / % richtig / Tage</th></tr></thead>
+    <tbody>${nrs.map(nr => { const r = t.results[nr], p = practiceSum(t, nr);
+      return `<tr><td>${nr}</td><td></td><td>${r ? fmtPts(r.pts) : 'fehlt'}</td><td><b>${r ? fmtNote(noteFor(r.pts)) : ''}</b></td><td>${r && r.tabs ? r.tabs + '×' : ''}</td>
+        <td>${p ? `${p.rounds} / ${p.drills} / ${p.tasks ? Math.round(100 * p.correct / p.tasks) : '–'} % / ${p.days}` : '–'}</td></tr>`; }).join('')}</tbody></table>
+    <p style="font-size:10pt">Namen von Hand aus der getrennt aufbewahrten Lehrerliste eintragen. Nach dem Übertrag in die Notenverwaltung den Test in der App löschen.</p>`;
+  window.print();
+}
+$('btnGrades').onclick = () => { const t = cur(); if (t) printGrades(t); };
 function printNumbers(t) {
   const url = new URL('./', location.href).href;
   $('printArea').innerHTML = `
@@ -345,6 +375,7 @@ $('btnDel').onclick = () => {
   saveD(); $('detail').classList.add('hidden'); renderTests();
 };
 
+try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) {}   // Browser bitten, die Daten nicht automatisch zu löschen
 renderTests();
 </script>
 </body>

@@ -150,3 +150,10 @@ details.card summary{cursor:pointer}
 .stFlash{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;font-size:clamp(2rem,7vw,5rem);font-weight:800;color:#fff;z-index:60;padding:20px;background:rgba(46,139,87,.92)}
 .stFlash.bad{background:rgba(192,57,43,.94)}
 .stFlash.warn{background:rgba(183,121,31,.94)}
+.counter{margin:12px 0 4px;padding:10px 14px;border:1px solid var(--line);border-radius:12px;background:var(--soft)}
+.counter .cnt{font-size:1.25rem}
+.counter .cnt b{font-size:1.8rem;color:var(--sea)}
+@media print{
+  .gradelist td:nth-child(2){width:14em}
+  .gradelist{break-before:auto}
+}
