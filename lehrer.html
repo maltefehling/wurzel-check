@@ -142,11 +142,38 @@ function renderNrBox(t) {
   $('nrBox').innerHTML = t.numbers && t.numbers.length
     ? `<details style="margin-top:10px"><summary><b>Wurzel-Check-Nummern dieser Klasse (${t.numbers.length})</b></summary>
         <div class="nrgrid">${t.numbers.map(n => `<span>${n}</span>`).join('')}</div>
-        <div class="btns"><button id="btnPrint">🖨 Kärtchen + Lehrerliste drucken</button><button id="btnMoreNr">+ 5 weitere Nummern</button></div></details>`
+        <label for="inNames">Klassenliste einfügen – ein Name pro Zeile, z. B. aus der Schulverwaltung kopiert <span class="muted" style="font-weight:400">(wird <b>nicht gespeichert</b> und nirgends hingeschickt)</span></label>
+        <textarea id="inNames" rows="6" style="width:100%;font:inherit;padding:.5rem;border:1px solid var(--line);border-radius:8px" placeholder="Albrecht, Lena&#10;Bauer, Tim&#10;…" autocomplete="off" autocorrect="off" spellcheck="false"></textarea>
+        <p class="muted" style="margin:.3rem 0"><small>Die Namen werden alphabetisch sortiert und bekommen die Nummern der Größe nach: erster Name → kleinste Nummer. So ist später auch die Notenliste alphabetisch.</small></p>
+        <div class="btns"><button class="primary" id="btnPrintNames">🖨 Kärtchen mit Namen + Lehrerliste drucken</button><button id="btnPrint">Kärtchen ohne Namen</button><button id="btnMoreNr">+ 5 weitere Nummern</button></div></details>`
     : `<div class="row" style="margin-top:10px"><label for="inCount" style="margin:0">Schüleranzahl:</label><input id="inCount" class="field" style="width:4em" inputmode="numeric" value="28"><button class="primary" id="btnMakeNr">Nummern erzeugen</button></div>`;
   if ($('btnMakeNr')) $('btnMakeNr').onclick = () => { const n = Math.max(1, Math.min(60, parseInt($('inCount').value, 10) || 0)); t.numbers = randomNrs(n); saveD(); renderTests(); };
   if ($('btnMoreNr')) $('btnMoreNr').onclick = () => { const pool = ALL_NRS.filter(n => !t.numbers.includes(n)); t.numbers = t.numbers.concat(pool.sort(() => Math.random() - .5).slice(0, 5)).sort((a, b) => a - b); saveD(); renderTests(); };
   if ($('btnPrint')) $('btnPrint').onclick = () => printNumbers(t);
+  if ($('btnPrintNames')) $('btnPrintNames').onclick = () => printWithNames(t);
+}
+/* Namen nur im Arbeitsspeicher: sortieren, der Größe nach Nummern zuordnen, drucken, Feld leeren. Nichts wird gespeichert. */
+function printWithNames(t) {
+  const names = $('inNames').value.split(/\r?\n/).map(x => x.replace(/\s+/g, ' ').replace(/\s*;\s*/g, ', ').trim()).filter(Boolean)
+    .sort((a, b) => a.localeCompare(b, 'de', { sensitivity: 'base' }));
+  if (!names.length) return toast('Bitte zuerst die Klassenliste einfügen.', true);
+  if (names.length > t.numbers.length) {
+    const pool = ALL_NRS.filter(n => !t.numbers.includes(n)).sort(() => Math.random() - .5);
+    const add = names.length - t.numbers.length;
+    if (add > pool.length) return toast('So viele Nummern gibt es nicht (höchstens 90).', true);
+    if (!confirm(`Die Liste hat ${names.length} Namen, es gibt aber nur ${t.numbers.length} Nummern. ${add} Nummern ergänzen?`)) return;
+    t.numbers = t.numbers.concat(pool.slice(0, add)).sort((a, b) => a - b); saveD(); renderTests();
+  }
+  const nrs = t.numbers.slice().sort((a, b) => a - b), url = new URL('./', location.href).href;
+  const pairs = nrs.map((n, i) => [n, names[i] || '']);
+  $('printArea').innerHTML = `
+    <h2>Wurzel-Check-Nummern ${esc(t.label || '')} – zum Ausschneiden</h2>
+    <div class="slips">${pairs.filter(p => p[1]).map(([n, name]) => `<div class="slip"><span class="slipname">${esc(name)}</span>Deine Wurzel-Check-Nummer<b>${n}</b><small>Gut aufheben (z. B. ins Heft kleben).<br>Üben: ${esc(url)}</small></div>`).join('')}</div>
+    <table class="keylist"><thead><tr><th colspan="2">Lehrerliste ${esc(t.label || '')} – alphabetisch, getrennt aufbewahren</th></tr><tr><th>Nr.</th><th>Name</th></tr></thead>
+    <tbody>${pairs.map(([n, name]) => `<tr><td>${n}</td><td>${esc(name)}</td></tr>`).join('')}</tbody></table>`;
+  // Namen nach dem Drucken sofort wieder vergessen (afterprint statt Zeitgeber – auf dem iPad kehrt print() sofort zurück)
+  window.addEventListener('afterprint', () => { $('printArea').innerHTML = ''; if ($('inNames')) $('inNames').value = ''; }, { once: true });
+  window.print();
 }
 /* Zähler „x von y eingesammelt“ – sichtbar in beiden Scan-Arten */
 function renderCount(t) {

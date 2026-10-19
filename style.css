@@ -131,6 +131,7 @@ details.card summary{cursor:pointer}
   .slips{display:grid;grid-template-columns:repeat(3,1fr);gap:0}
   .slip{border:1px dashed #999;padding:14px 10px;text-align:center;font-size:12pt;break-inside:avoid}
   .slip b{display:block;font-size:26pt;letter-spacing:.1em;margin:4px 0}
+  .slip .slipname{display:block;font-size:13pt;font-weight:700;margin-bottom:4px}
   .keylist{border-collapse:collapse;width:100%;font-size:12pt;break-before:page}
   .keylist td,.keylist th{border:1px solid #999;padding:6px 8px;text-align:left}
   .keylist td:first-child{width:5em;font-weight:700;text-align:center}
