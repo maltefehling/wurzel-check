@@ -29,8 +29,8 @@
   <details class="card" id="dsBox">
     <summary><b>🔒 Datenschutz – welche Daten gibt es hier?</b></summary>
     <ul class="tight">
-      <li><b>Kein Name, kein Konto, kein Server.</b> Du meldest dich nur mit deiner Wurzel-Check-Nummer an. Welche Nummer zu wem gehört, weiß nur deine Lehrkraft.</li>
-      <li><b>Auf deinem Gerät</b> (im Browser) werden gespeichert: deine Nummer, wie oft du geübt hast (Runden, Aufgaben, richtige Antworten, Übungstage, Übungszeit) und im Test deine Antworten.</li>
+      <li><b>Kein Name, kein Konto, kein Server.</b> Zum Üben brauchst du gar nichts, nur für den Test deine Wurzel-Check-Nummer. Welche Nummer zu wem gehört, weiß nur deine Lehrkraft.</li>
+      <li><b>Auf deinem Gerät</b> (im Browser) werden gespeichert: wie oft du geübt hast (Runden, Aufgaben, richtige Antworten, Übungstage, Übungszeit) und im Test deine Antworten.</li>
       <li><b>Zu deiner Lehrkraft</b> kommen diese Daten nur, wenn du ihr den QR-Code zeigst und sie ihn scannt – direkt von Gerät zu Gerät, ohne Internet.</li>
       <li><b>Wofür:</b> Bewertung des Tests und ein Überblick, wie viel du geübt hast (z. B. für Elterngespräche).</li>
       <li><b>Löschen:</b> Nach dem Test kannst du alles mit einem Knopf löschen. Testdaten löschen sich nach 14 Tagen von selbst, Übungsdaten nach 90 Tagen ohne Übung. Deine Lehrkraft löscht ihre Daten, sobald sie sie in ihre Notenverwaltung übertragen hat.</li>
@@ -178,25 +178,32 @@ function renderHome() {
   renderNrCard();
   show('vHome');
 }
+/* Startseite: keine Nummern-Abfrage mehr (zum Üben unnötig). Nur der eigene Übungsstand –
+   und der Übungsnachweis für ein zweites Gerät, der erst dann nach der Nummer fragt. */
 function renderNrCard() {
-  const nr = store.get(NRKEY), p = store.get(PKEY);
-  const stat = p ? `Geübt: <b>${p.rounds}</b> ${p.rounds === 1 ? 'Runde' : 'Runden'} · <b>${p.drills}</b> Themen-Übungen · ${p.tasks} Aufgaben an ${p.days.length} ${p.days.length === 1 ? 'Tag' : 'Tagen'}` : 'Noch nicht geübt.';
-  $('nrCard').innerHTML = nr
-    ? `<div class="row"><div style="flex:1;min-width:220px">Deine Wurzel-Check-Nummer: <b style="font-size:1.25rem">${nr}</b> <button id="nrChange" style="margin-left:6px">ändern</button><br><small class="muted">${stat}</small></div>
-       <button id="proofGo">📋 Übungsnachweis zeigen</button></div>`
-    : `<label for="inMyNr" style="margin-top:0">Deine Wurzel-Check-Nummer <span class="muted" style="font-weight:400">(3 Ziffern, bekommst du von deiner Lehrkraft)</span></label>
-       <div class="row"><input id="inMyNr" class="field" inputmode="numeric" maxlength="3" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="z. B. 417"><button class="primary" id="nrSave">Speichern</button></div>
-       <div id="nrErr" class="err"></div><small class="muted">Damit deine Lehrkraft sieht, wie fleißig du geübt hast. Üben geht auch ohne Nummer. ${p ? stat : ''}</small>`;
-  if ($('nrSave')) {
-    $('nrSave').onclick = () => {
-      const v = $('inMyNr').value.trim();
-      if (!validNr(v)) { $('nrErr').textContent = 'Diese Nummer gibt es nicht. Schau noch einmal auf deinen Zettel.'; return; }
-      store.set(NRKEY, +v); renderNrCard();
-    };
-    $('inMyNr').addEventListener('keydown', e => { if (e.key === 'Enter') $('nrSave').click(); });
-  }
-  if ($('nrChange')) $('nrChange').onclick = () => { try { localStorage.removeItem(NRKEY); } catch (e) {} renderNrCard(); $('inMyNr').focus(); };
-  if ($('proofGo')) $('proofGo').onclick = showProof;
+  const p = store.get(PKEY);
+  if (!p || !p.tasks) { $('nrCard').classList.add('hidden'); return; }
+  $('nrCard').classList.remove('hidden');
+  $('nrCard').innerHTML = `<div class="row"><div style="flex:1;min-width:220px">Dein Übungsstand: <b>${p.rounds}</b> ${p.rounds === 1 ? 'Runde' : 'Runden'} · <b>${p.drills}</b> Themen-Übungen · ${p.tasks} Aufgaben an ${p.days.length} ${p.days.length === 1 ? 'Tag' : 'Tagen'}<br>
+      <small class="muted">Zählt automatisch und steckt später in deinem Test-Ergebnis.</small></div>
+    <button id="proofGo">📋 Übungsnachweis</button></div>
+    <p class="muted" style="margin:.4rem 0 0"><small>Den Übungsnachweis brauchst du nur, wenn du <b>hier</b> übst, den Test aber auf einem <b>anderen Gerät</b> schreibst.</small></p>`;
+  $('proofGo').onclick = () => store.get(NRKEY) ? showProof() : askNrForProof();
+}
+function askNrForProof() {
+  $('proofCard').innerHTML = `<h2>📋 Übungsnachweis</h2>
+    <label for="inMyNr">Deine Wurzel-Check-Nummer (3 Ziffern, von deinem Kärtchen)</label>
+    <div class="row"><input id="inMyNr" class="field" inputmode="numeric" maxlength="3" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="z. B. 417"><button class="primary" id="nrSave">Weiter</button></div>
+    <div id="nrErr" class="err"></div>
+    <div class="btns" style="justify-content:center"><button id="proofBack">← Startseite</button></div>`;
+  $('nrSave').onclick = () => {
+    const v = $('inMyNr').value.trim();
+    if (!validNr(v)) { $('nrErr').textContent = 'Diese Nummer gibt es nicht. Schau noch einmal auf dein Kärtchen.'; return; }
+    store.set(NRKEY, +v); showProof();
+  };
+  $('inMyNr').addEventListener('keydown', e => { if (e.key === 'Enter') $('nrSave').click(); });
+  $('proofBack').onclick = renderHome;
+  show('vProof');
 }
 function qrSvg(text) { const q = qrcode(0, 'M'); q.addData(text); q.make(); return q.createSvgTag({ cellSize: 4, margin: 2, scalable: true }); }
 function showProof() {
@@ -205,8 +212,9 @@ function showProof() {
     <p>${p.rounds} ${p.rounds === 1 ? 'Runde' : 'Runden'} · ${p.drills} Themen-Übungen · ${p.tasks} Aufgaben, davon ${p.correct} beim 1. Versuch richtig · an ${p.days.length} ${p.days.length === 1 ? 'Tag' : 'Tagen'} · ca. ${Math.round(p.minutes)} min</p>
     <p><b>Zeige diesen QR-Code deiner Lehrkraft.</b> Das brauchst du nur, wenn du auf einem <b>anderen Gerät</b> geübt hast als dem, auf dem du den Test schreibst – sonst steckt dein Übungsnachweis schon im Test-Code.</p>
     <div class="qrbox">${qrSvg(makePracticePayload(nr, p))}</div>
-    <div class="btns" style="justify-content:center"><button id="proofBack">← Startseite</button></div>`;
+    <div class="btns" style="justify-content:center"><button id="proofBack">← Startseite</button><button id="proofNr">Andere Nummer</button></div>`;
   $('proofBack').onclick = renderHome;
+  $('proofNr').onclick = () => { try { localStorage.removeItem(NRKEY); } catch (e) {} askNrForProof(); };
   show('vProof');
 }
 $('wipeAll').onclick = () => { if (confirm('Wirklich alle Wurzel-Check-Daten (Nummer, Übungsstatistik, Tests) von diesem Gerät löschen?')) { wipeAll(); renderHome(); } };
