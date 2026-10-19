@@ -342,7 +342,9 @@ function renderTest() {
      <p class="muted" style="margin-top:10px"><small>Deine Antworten werden automatisch gespeichert. Du kannst jederzeit zu einer Aufgabe zurückspringen.</small></p>`);
   $('tCard').classList.remove('hidden'); $('tConfirm').classList.add('hidden');
   $('tCard').classList.toggle('review', !!SLOTS[t.slot].review);
-  wireBegriffe($('tCard'));
+  // Im Test keine Hilfen: Fachbegriffe sind hier normaler Text (die Erklärung mit Beispielen gibt es nur in der Übung)
+  $('tCard').querySelectorAll('.begriff').forEach(b => { b.replaceWith(document.createTextNode(b.textContent)); });
+  if ($('infoBox')) $('infoBox').remove();
   if (t.type === 'mc') $('tCard').querySelectorAll('.opt').forEach(b => b.onclick = () => {
     st.answers[st.cur] = { k: +b.dataset.k }; saveT();
     $('tCard').querySelectorAll('.opt').forEach(x => x.classList.toggle('sel', x === b));
