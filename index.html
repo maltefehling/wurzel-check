@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Wurzel-Check</title>
-<link rel="stylesheet" href="style.css?v=20261019a">
+<link rel="stylesheet" href="style.css?v=20261019c">
 </head>
 <body>
 <main>
@@ -14,6 +14,7 @@
   <h1>Wurzel-Check</h1>
   <p class="muted" style="margin-top:0">Hochzahlen und Wurzeln · 12 Aufgaben zu den Punkten des Kompetenzrasters + 1 Wiederholungsaufgabe</p>
   <div id="resumeBox"></div>
+  <div id="openBox"></div>
   <div class="card" id="nrCard"></div>
   <div class="modes">
     <button class="card mode" id="goPractice"><b>🔁 Probetest üben</b>
@@ -176,6 +177,7 @@ function renderHome() {
     : st && st.submitted ? `<div class="card"><b>✅ Test abgegeben</b> (Nr. ${st.nr}) <button id="resumeGo" style="margin-left:8px">Ergebnis-Code noch einmal zeigen</button></div>` : '';
   if ($('resumeGo')) $('resumeGo').onclick = () => openTest(st.code, st.nr);
   renderNrCard();
+  $('openBox').innerHTML = openTopicsHtml(); wireOpenTopics($('openBox'));
   show('vHome');
 }
 /* Startseite: keine Nummern-Abfrage mehr (zum Üben unnötig). Nur der eigene Übungsstand –
@@ -279,25 +281,57 @@ function practiceCheck() {
   $('pNext').onclick = () => { P.i++; P.i < P.tasks.length ? renderPractice() : practiceSummary(); };
   $('pNext').focus();
 }
+/* Offene Themen aus dem letzten Probetest: bleiben gespeichert, bis alle geübt sind oder ein neuer Probetest kommt */
+const OKEY = 'wurzelcheck.offen';
+function openTopicsHtml(cur = null) {
+  const o = store.get(OKEY);
+  if (!o || !o.slots || !o.slots.length) return '';
+  const left = o.slots.filter(sl => !o.done.includes(sl));
+  return `<div class="card opentopics">
+    <h2 style="margin-top:0">${left.length ? `Deine offenen Themen aus dem letzten Probetest <span class="muted" style="font-weight:400">(${o.done.length} von ${o.slots.length} geübt)</span>` : '✅ Alle offenen Themen aus dem letzten Probetest geübt!'}</h2>
+    ${left.length ? '<p class="muted" style="margin-top:0">Tippe ein Thema an – fünf Aufgaben dazu. Danach kommst du hierher zurück.</p>' : '<p style="margin-top:0">Stark! Jetzt am besten noch einmal einen ganzen Probetest machen.</p>'}
+    <div class="topics">${o.slots.map(sl => `<button data-i="${sl}" class="${o.done.includes(sl) ? 'donetopic' : ''} ${sl === cur ? 'curtopic' : ''}">${o.done.includes(sl) ? '✓ ' : ''}${SLOTS[sl].name}<br><small class="muted">${SLOTS[sl].area}</small></button>`).join('')}</div>
+  </div>`;
+}
+function wireOpenTopics(root) { root.querySelectorAll('.opentopics .topics button').forEach(b => b.onclick = () => startPractice(+b.dataset.i)); }
+
 function practiceSummary() {
   $('pCard').classList.remove('review');
   if (P.counted >= ROUND_SHARE * P.tasks.length) notePractice(p => { if (P.slot === null) p.rounds++; else p.drills++; });
   const n = P.first.filter(x => x === 2).length, N = P.tasks.length;
   const pts = P.fg.reduce((s, g) => s + points(g), 0), full = P.slot === null;
   $('pProgress').textContent = 'Auswertung'; $('pScore').textContent = full ? `${fmtPts(pts)} von ${N} Punkten` : `${n} von ${N}`;
-  const wrong = P.tasks.map((t, i) => [t, i]).filter(([, i]) => P.first[i] !== 2);
-  $('pCard').innerHTML = `<div class="result">
-    ${full ? `<div class="score">${fmtPts(pts)} / ${N} Punkte</div>
+  if (full) {
+    // neue Liste offener Themen (✗ und ½), in der Reihenfolge des Kompetenzrasters
+    const open = [...new Set(P.tasks.map((t, i) => P.fg[i] !== 2 ? t.slot : null).filter(x => x !== null))].sort((a, b) => a - b);
+    store.set(OKEY, { slots: open, done: [] });
+    $('pCard').innerHTML = `<div class="result">
+      <div class="score">${fmtPts(pts)} / ${N} Punkte</div>
       <div class="note">Das wäre die Note <b>${fmtNote(noteFor(pts))}</b></div>
-      <p class="muted"><small>Gewertet wird wie im Test: jeweils dein erster Versuch, ½ Punkt, wenn der Wert stimmt, aber nicht vollständig vereinfacht ist.</small></p>` : `<div class="score">${n} / ${N}</div>`}
-    <p>${n === N ? 'Alles beim ersten Versuch richtig – stark! 🎉' : n >= N * 0.75 ? 'Schon richtig gut! Übe die Themen unten noch einmal gezielt.' : 'Übe die Themen unten gezielt – dann gleich noch eine Runde!'}</p>
-    </div>
-    <h2>Dein Stand im Kompetenzraster</h2>
-    <p class="muted" style="margin-top:0">✗ und ½ zeigen dir, welche Zeilen im Kompetenzraster du noch üben solltest – dort stehen auch die passenden Buchaufgaben.</p>
-    ${rasterReport(P.tasks, P.fg, true)}
-    <div class="btns" style="margin-top:14px"><button class="primary" id="pAgain">🔁 Neue Runde mit neuen Zahlen</button><button id="pBack">← Startseite</button></div>`;
-  $('pCard').querySelectorAll('.rreport button').forEach(b => b.onclick = () => startPractice(+b.dataset.i));
-  $('pAgain').onclick = () => startPractice(P.slot);
+      <p class="muted"><small>Gewertet wird wie im Test: jeweils dein erster Versuch, ½ Punkt, wenn der Wert stimmt, aber nicht vollständig vereinfacht ist.</small></p>
+      <p>${!open.length ? 'Alles beim ersten Versuch richtig – stark! 🎉' : n >= N * 0.75 ? 'Schon richtig gut! Übe die offenen Themen unten noch einmal gezielt.' : 'Übe die offenen Themen unten gezielt – dann gleich noch eine Runde!'}</p>
+      </div>
+      ${openTopicsHtml()}
+      <h2>Dein Stand im Kompetenzraster</h2>
+      <p class="muted" style="margin-top:0">✗ und ½ zeigen dir, welche Zeilen im Kompetenzraster du noch üben solltest – dort stehen auch die passenden Buchaufgaben.</p>
+      ${rasterReport(P.tasks, P.fg, true)}
+      <div class="btns" style="margin-top:14px"><button class="primary" id="pAgain">🔁 Neue Runde mit neuen Zahlen</button><button id="pBack">← Startseite</button></div>`;
+    $('pCard').querySelectorAll('.rreport button').forEach(b => b.onclick = () => startPractice(+b.dataset.i));
+  } else {
+    // Themen-Übung fertig: in der Liste abhaken und dorthin zurückführen
+    const o = store.get(OKEY);
+    if (o && o.slots.includes(P.slot) && !o.done.includes(P.slot)) { o.done.push(P.slot); store.set(OKEY, o); }
+    $('pCard').innerHTML = `<div class="result">
+      <div class="qtitle">${SLOTS[P.slot].area} · ${SLOTS[P.slot].name}</div>
+      <div class="score">${n} / ${N}</div>
+      <p>${n === N ? 'Alles beim ersten Versuch richtig – stark! 🎉' : n >= N - 1 ? 'Gut gemacht!' : 'Noch nicht ganz sicher – übe dieses Thema ruhig noch einmal.'}</p>
+      </div>
+      ${openTopicsHtml(P.slot)}
+      <div class="btns" style="margin-top:14px"><button class="primary" id="pRepeat">🔁 Dieses Thema noch einmal</button><button id="pAgain">Neuer Probetest</button><button id="pBack">← Startseite</button></div>`;
+    $('pRepeat').onclick = () => startPractice(P.slot);
+  }
+  wireOpenTopics($('pCard'));
+  $('pAgain').onclick = () => startPractice(null);
   $('pBack').onclick = renderHome;
 }
 
