@@ -238,10 +238,19 @@ function renderPractice() {
   P.tries = 0; P.done = false; P.a = {}; P.t0 = Date.now();
   const head = `${SLOTS[t.slot].area} · ${SLOTS[t.slot].name}`;
   $('pCard').innerHTML = taskHtml(t, head, {},
-    `<div class="btns">${t.type !== 'mc' ? '<button class="primary" id="pCheck">Prüfen ✓</button>' : ''}<button id="pHint">💡 Tipp</button></div><div id="fb"></div>`);
+    `${t.type === 'mc' ? '<p class="muted" style="margin:.2rem 0 0"><small>Tippe deine Antwort an und bestätige dann mit „Prüfen“.</small></p>' : ''}<div class="btns"><button class="primary" id="pCheck">Prüfen ✓</button><button id="pHint">💡 Tipp</button></div><div id="fb"></div>`);
   $('pCard').classList.toggle('review', !!SLOTS[t.slot].review);
   wireBegriffe($('pCard'));
-  if (t.type === 'mc') $('pCard').querySelectorAll('.opt').forEach(b => b.onclick = () => { P.a = { k: +b.dataset.k }; practiceCheck(); });
+  if (t.type === 'mc') {
+    // Antippen markiert nur (versehentliches Antippen wird nicht gewertet); bewertet wird erst mit „Prüfen“
+    $('pCard').querySelectorAll('.opt').forEach(b => b.onclick = () => {
+      if (P.done) return;
+      P.a = { k: +b.dataset.k };
+      $('pCard').querySelectorAll('.opt').forEach(x => x.classList.toggle('sel', x === b));
+      if ($('fb').querySelector('.warn')) $('fb').innerHTML = '';
+    });
+    $('pCheck').onclick = () => practiceCheck();
+  }
   else {
     $('pCheck').onclick = () => { P.a = readInputs(); practiceCheck(); };
     $('pCard').querySelectorAll('input').forEach(inp => inp.addEventListener('keydown', e => {
@@ -258,7 +267,7 @@ function practiceCheck() {
   const t = P.tasks[P.i], g = grade(t, P.a);
   const solHtml = `<ol class="sol">${t.sol.map(s => `<li>${s}</li>`).join('')}</ol>`;
   const next = `<div class="btns"><button class="primary" id="pNext">${P.i + 1 < P.tasks.length ? 'Nächste Aufgabe →' : 'Auswertung →'}</button></div>`;
-  if (g === -1) { $('fb').innerHTML = '<div class="fb warn">Bitte trage zuerst eine Antwort ein.</div>'; return; }
+  if (g === -1) { $('fb').innerHTML = `<div class="fb warn">${t.type === 'mc' ? 'Bitte tippe zuerst eine Antwort an.' : 'Bitte trage zuerst eine Antwort ein.'}</div>`; return; }
   if (P.fg[P.i] === undefined) P.fg[P.i] = g;   // erste Abgabe zählt für die Note – wie im Test
   if (g === 1) { $('fb').innerHTML = `<div class="fb hint">Fast! Der Wert stimmt, aber die Form noch nicht. ${t.type === 'sci' ? 'Vor dem Komma muss genau eine Ziffer von 1 bis 9 stehen.' : 'Steckt unter der Wurzel noch eine Quadratzahl?'} Verbessere noch.</div>`; return; }
   if (g === 2) {
@@ -268,7 +277,7 @@ function practiceCheck() {
     $('fb').innerHTML = `<div class="fb ok">✅ Richtig!${solHtml}</div>${next}`;
   } else if (P.tries === 0) {
     P.tries = 1; P.first[P.i] = 0;
-    if (t.type === 'mc') $('pCard').querySelectorAll('.opt').forEach(b => { if (+b.dataset.k === P.a.k) b.disabled = true; });
+    if (t.type === 'mc') { $('pCard').querySelectorAll('.opt').forEach(b => { if (+b.dataset.k === P.a.k) b.disabled = true; b.classList.remove('sel'); }); P.a = {}; }
     $('fb').innerHTML = `<div class="fb bad">Leider falsch. Schau dir den Tipp an und versuche es noch einmal.</div><div class="fb hint">💡 ${t.hint}</div>`;
     return;
   } else {
