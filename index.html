@@ -292,12 +292,20 @@ function practiceCheck() {
 }
 /* Offene Themen aus dem letzten Probetest: bleiben gespeichert, bis alle geübt sind oder ein neuer Probetest kommt */
 const OKEY = 'wurzelcheck.offen';
+/* Was im letzten Durchlauf (Probetest oder Test) nicht geklappt hat – bleibt auf der Startseite stehen */
+function setOpenTopics(tasks, grades, source, key = '') {
+  const slots = [...new Set(tasks.map((t, i) => grades[i] !== 2 ? t.slot : null).filter(x => x !== null))].sort((a, b) => a - b);
+  store.set(OKEY, { slots, done: [], source, key, date: today() });
+}
 function openTopicsHtml(cur = null) {
   const o = store.get(OKEY);
-  if (!o || !o.slots || !o.slots.length) return '';
+  if (!o || !o.slots) return '';
+  const was = o.source === 'test' ? 'Test' : 'Probetest';
+  const wann = o.date ? (o.date === today() ? 'heute' : `am ${o.date.slice(8, 10)}.${o.date.slice(5, 7)}.`) : '';
+  if (!o.slots.length) return `<div class="card opentopics"><h2 style="margin:0">🎉 In deinem letzten ${was} ${wann} hat alles geklappt!</h2></div>`;
   const left = o.slots.filter(sl => !o.done.includes(sl));
   return `<div class="card opentopics">
-    <h2 style="margin-top:0">${left.length ? `Deine offenen Themen aus dem letzten Probetest <span class="muted" style="font-weight:400">(${o.done.length} von ${o.slots.length} geübt)</span>` : '✅ Alle offenen Themen aus dem letzten Probetest geübt!'}</h2>
+    <h2 style="margin-top:0">${left.length ? `Das hat in deinem letzten ${was} ${wann} nicht geklappt <span class="muted" style="font-weight:400">(${o.done.length} von ${o.slots.length} geübt)</span>` : `✅ Alles aus deinem letzten ${was} nachgeübt!`}</h2>
     ${left.length ? '<p class="muted" style="margin-top:0">Tippe ein Thema an – fünf Aufgaben dazu. Danach kommst du hierher zurück.</p>' : '<p style="margin-top:0">Stark! Jetzt am besten noch einmal einen ganzen Probetest machen.</p>'}
     <div class="topics">${o.slots.map(sl => `<button data-i="${sl}" class="${o.done.includes(sl) ? 'donetopic' : ''} ${sl === cur ? 'curtopic' : ''}">${o.done.includes(sl) ? '✓ ' : ''}${SLOTS[sl].name}<br><small class="muted">${SLOTS[sl].area}</small></button>`).join('')}</div>
   </div>`;
@@ -312,8 +320,8 @@ function practiceSummary() {
   $('pProgress').textContent = 'Auswertung'; $('pScore').textContent = full ? `${fmtPts(pts)} von ${N} Punkten` : `${n} von ${N}`;
   if (full) {
     // neue Liste offener Themen (✗ und ½), in der Reihenfolge des Kompetenzrasters
-    const open = [...new Set(P.tasks.map((t, i) => P.fg[i] !== 2 ? t.slot : null).filter(x => x !== null))].sort((a, b) => a - b);
-    store.set(OKEY, { slots: open, done: [] });
+    setOpenTopics(P.tasks, P.fg, 'probe');
+    const open = store.get(OKEY).slots;
     $('pCard').innerHTML = `<div class="result">
       <div class="score">${fmtPts(pts)} / ${N} Punkte</div>
       <div class="note">Das wäre die Note <b>${fmtNote(noteFor(pts))}</b></div>
@@ -424,6 +432,9 @@ document.addEventListener('visibilitychange', () => {
 
 function renderDone() {
   const st = T.st, grades = T.tasks.map((t, i) => grade(t, st.answers[i]));
+  // Liste für die Startseite nur einmal pro Test anlegen (beim erneuten Öffnen des Ergebnisses nicht zurücksetzen)
+  const o = store.get(OKEY), key = `test|${T.code}|${T.nr}`;
+  if (!o || o.key !== key) setOpenTopics(T.tasks, grades, 'test', key);
   const pts = grades.reduce((s, g) => s + points(g), 0);
   const minutes = Math.max(1, Math.round(((st.end || Date.now()) - st.start) / 60000));
   const payload = makePayload(T.code, T.nr, st.tabs, minutes, st.answers, store.get(PKEY));
