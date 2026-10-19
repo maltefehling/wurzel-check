@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>Wurzel-Check · Lehrkraft</title>
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=20261019a">
 </head>
 <body>
 <main>
@@ -83,7 +83,7 @@
 
 <script src="lib/qrcode.js"></script>
 <script src="lib/jsQR.js"></script>
-<script src="aufgaben.js"></script>
+<script src="aufgaben.js?v=20261019a"></script>
 <script>
 "use strict";
 const LKEY = 'wurzelcheck.lehrer';
@@ -261,6 +261,7 @@ function handleScan(text) {
       foreign ? `⚠ Nr. ${p.nr} steht nicht auf der Liste – bitte zur Lehrkraft` : `✓ Übungsnachweis Nr. ${p.nr} erfasst`);
   }
   if (p.code !== t.code) { saveD(); return say(`Nr. ${p.nr} hat einen anderen Testcode (${p.code}) eingegeben! Übungsdaten wurden übernommen.`, 'bad', `✗ Nr. ${p.nr}: falscher Testcode – bitte zur Lehrkraft`); }
+  if (p.version !== APPV) { saveD(); return say(`Nr. ${p.nr} hatte eine ältere Fassung der App (${p.version || 'alt'}). Bitte den Kurzcode unter dem QR-Code ansagen lassen und unten von Hand eintragen – er enthält die Bewertung vom Schülergerät.`, 'bad', `✗ Nr. ${p.nr}: alte App-Fassung – bitte zur Lehrkraft`); }
   const tasks = testTasks(p.code, p.nr), grades = tasks.map((x, i) => grade(x, p.answers[i]));
   storeResult(t, { nr: p.nr, grades, tabs: p.tabs, minutes: p.minutes, answers: p.answers, src: 'QR' }, foreign);
 }

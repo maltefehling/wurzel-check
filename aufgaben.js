@@ -601,6 +601,38 @@ G.bruchAdd = function () {
   };
 };
 
+/* ---------- Test ohne Taschenrechner: Varianten mit Zahlen, die man im Kopf bzw. schriftlich schafft ---------- */
+G.exponentBasis = function () {
+  const [b, e] = pick([[2, R(3, 6)], [3, R(2, 4)], [4, R(2, 3)], [5, R(2, 3)], [10, R(3, 6)]]);
+  const v = Math.pow(b, e);
+  return {
+    title: 'Exponent gesucht', q: `Welcher Exponent fehlt?<div class="big">${b}<sup>□</sup> = ${fmt(v)}</div>`, type: 'num', ans: e, pre: '□ =',
+    hint: `Multipliziere ${b} · ${b} · ${b} · … und zähle mit, bis ${fmt(v)} herauskommt.`,
+    sol: [`${Array(e).fill(b).join(' · ')} = ${fmt(v)}`, `Das sind ${e} Faktoren, also □ = ${e}.`]
+  };
+};
+G.quadratFlaecheBasis = function () {
+  const a = pick([R(3, 15), R(3, 15), 20, 30, pick([0.5, 1.5, 2.5, 0.3, 0.7, 1.2])]);
+  const A = Number((a * a).toPrecision(10));
+  const ctx = pick(['Ein quadratisches Sonnensegel', 'Eine quadratische Badeplattform', 'Ein quadratisches Beet', 'Eine quadratische Terrasse']);
+  return {
+    title: 'Vom Quadrat zur Seite', q: `${ctx} hat den Flächeninhalt <b>${fmt(A)} m²</b>. Wie lang ist eine Seite?`,
+    sketch: skQuadrat(`A = ${fmt(A)} m²`), type: 'num', ans: a, post: 'm',
+    hint: 'Beim Quadrat gilt A = a · a. Welche Zahl ergibt mit sich selbst multipliziert den Flächeninhalt?',
+    sol: [`a = ${sq(fmt(A))}`, `${fmt(a)} · ${fmt(a)} = ${fmt(A)}`, `a = ${fmt(a)} m`]
+  };
+};
+G.wuerfelVolumenBasis = function () {
+  const a = pick([2, 3, 4, 5, 6, 10]), V = a ** 3, u = pick(['cm', 'dm']);
+  const ctx = pick(['Ein würfelförmiger Ankerstein', 'Eine würfelförmige Kiste', 'Ein würfelförmiger Schwimmkörper']);
+  return {
+    title: 'Vom Würfel zur Kante', q: `${ctx} hat das Volumen <b>${V} ${u}³</b>. Wie lang ist eine Kante?`,
+    sketch: skWuerfel(`V = ${V} ${u}³`), type: 'num', ans: a, post: u,
+    hint: 'Beim Würfel gilt V = a · a · a. Welche Zahl ergibt dreimal mit sich selbst multipliziert das Volumen?',
+    sol: [`a = ${cb(V)}`, `${a} · ${a} · ${a} = ${V}`, `a = ${a} ${u}`]
+  };
+};
+
 /* Nur in der Übung: eine Nachkommastelle prüfen statt mühsam suchen (Taschenrechner erlaubt) */
 G.einschachtelnDez = function () {
   let n; do { n = R(11, 150); } while (Number.isInteger(Math.sqrt(n)));
@@ -621,8 +653,10 @@ G.einschachtelnDez = function () {
 };
 
 /* Taschenrechner erlaubt, wo sonst schriftliches Rechnen die Zeit frisst (Regel der Wurzel-Regatta) */
-const MIT_TR = new Set(['exponent', 'groesstePotenz', 'quadratFlaeche', 'wuerfelVolumen', 'figurQuadrate',
-  'wuerfelOberflaeche', 'wuerfelKette', 'rechteckWurzel', 'wuerfelGebilde', 'gebildeOberflaeche', 'trAnzeige', 'einschachtelnDez']);
+/* Der Test ist komplett OHNE Taschenrechner (Malte: gemischt lässt sich nicht kontrollieren).
+   „Mit TR“ gibt es nur noch bei den reinen Übungs-Zusätzen (practiceGens), die nie im Test vorkommen. */
+const MIT_TR = new Set(['quadratFlaeche', 'wuerfelVolumen', 'figurQuadrate', 'wuerfelOberflaeche', 'wuerfelKette', 'rechteckWurzel',
+  'wuerfelGebilde', 'gebildeOberflaeche', 'einschachtelnDez']);
 
 /* ---------- Die Aufgabenplätze: 12 zum aktuellen Thema (je einer pro Kompetenz aus dem Kompetenzraster)
    + 1 Wiederholung aus einem früheren Thema (review: true, farblich abgesetzt, im Test immer zuletzt) ----------
@@ -630,36 +664,36 @@ const MIT_TR = new Set(['exponent', 'groesstePotenz', 'quadratFlaeche', 'wuerfel
 /* area = Abschnitt im Kompetenzraster, name = Themenname für „Gezielt üben“.
    Die „Ich kann …“-Sätze stehen in RASTER und müssen WORTGLEICH im Kompetenzraster stehen. */
 const SLOTS = [
-  { area: 'S. 10–11 Potenzen', name: 'Potenzschreibweise', gens: ['produktPotenz', 'exponent'] },
+  { area: 'S. 10–11 Potenzen', name: 'Potenzschreibweise', gens: ['produktPotenz', 'exponentBasis'] },
   { area: 'S. 10–11 Potenzen', name: 'Potenzwerte berechnen', gens: ['potenzwertBasis', 'groesstePotenz'] },
   { area: 'S. 12–13 Zehnerpotenzen', name: 'Zehnerpotenzen ausschreiben', gens: ['sciZuruck'] },
   { area: 'S. 12–13 Zehnerpotenzen', name: 'Wissenschaftliche und technische Schreibweise', gens: ['sciVoll', 'technisch', 'sciExp'] },
   { area: 'S. 12–13 Zehnerpotenzen', name: 'Taschenrechneranzeige', gens: ['trAnzeige'] },
   { area: 'S. 14–15 Quadratwurzeln', name: 'Quadratwurzeln bestimmen', gens: ['wurzelGanz', 'wurzelDezBasis'] },
-  { area: 'S. 14–15 Quadratwurzeln', name: 'Seiten- und Kantenlängen', gens: ['quadratFlaeche'], practiceGens: ['quadratFlaeche', 'wuerfelOberflaeche'] },   // Würfel-Oberfläche (2 Schritte) nur in der Übung
+  { area: 'S. 14–15 Quadratwurzeln', name: 'Seiten- und Kantenlängen', gens: ['quadratFlaecheBasis'], practiceGens: ['quadratFlaecheBasis', 'wuerfelOberflaeche'] },   // Würfel-Oberfläche (2 Schritte, mit TR) nur in der Übung
   { area: 'S. 16–17 Bestimmen von Quadratwurzeln', name: 'Wurzeln näherungsweise bestimmen', gens: ['einschachteln'], practiceGens: ['einschachteln', 'einschachtelnDez'] },   // im Test nur ganze Zahlen
   { area: 'S. 20–21 Wurzeln multiplizieren und dividieren', name: 'Wurzeln multiplizieren und dividieren', gens: ['wurzelProdukt', 'wurzelQuotient'] },
   { area: 'S. 22–23 Rechnen mit Quadratwurzeln (a)', name: 'Teilweise Wurzel ziehen', gens: ['teilweise'] },
   { area: 'S. 22–23 Rechnen mit Quadratwurzeln (b)', name: 'Wurzelterme zusammenfassen', gens: ['zusammenfassen'] },
-  { area: 'S. 24–25 Kubikwurzeln und n-te Wurzeln', name: 'Kubikwurzeln und n-te Wurzeln', gens: ['kubikwurzel', 'nteWurzel', 'wuerfelVolumen'] },
+  { area: 'S. 24–25 Kubikwurzeln und n-te Wurzeln', name: 'Kubikwurzeln und n-te Wurzeln', gens: ['kubikwurzel', 'nteWurzel', 'wuerfelVolumenBasis'] },
   { area: 'Wiederholung: Bruchrechnung', name: 'Brüche addieren', gens: ['bruchAdd'], review: true }   // bei künftigen Tests hier ein anderes altes Thema eintragen
 ];
 const RASTER = {
   produktPotenz: 'Produkte als Potenz angeben und berechnen.',
-  exponent: 'Zahlen in der Potenzschreibweise angeben.',
+  exponent: 'Zahlen in der Potenzschreibweise angeben.', exponentBasis: 'Zahlen in der Potenzschreibweise angeben.',
   potenzwert: 'Potenzwerte berechnen.', minusFalle: 'Potenzwerte berechnen.', potenzwertBasis: 'Potenzwerte berechnen.', groesstePotenz: 'Potenzwerte berechnen.',
   sciZuruck: 'Zahlen ohne Potenzen angeben.',
   sciVoll: 'Zahlen in technischer und wissenschaftlicher Schreibweise angeben.', sciExp: 'Zahlen in technischer und wissenschaftlicher Schreibweise angeben.', technisch: 'Zahlen in technischer und wissenschaftlicher Schreibweise angeben.',
   trAnzeige: 'die Taschenrechneranzeige interpretieren.',
   wurzelGanz: 'Quadratwurzeln bestimmen.', wurzelDez: 'Quadratwurzeln bestimmen.', wurzelDezBasis: 'Quadratwurzeln bestimmen.',
-  quadratFlaeche: 'Seiten- und Kantenlängen von Quadraten und Würfeln durch Wurzelziehen bestimmen.',
+  quadratFlaeche: 'Seiten- und Kantenlängen von Quadraten und Würfeln durch Wurzelziehen bestimmen.', quadratFlaecheBasis: 'Seiten- und Kantenlängen von Quadraten und Würfeln durch Wurzelziehen bestimmen.',
   wuerfelOberflaeche: 'Seiten- und Kantenlängen von Quadraten und Würfeln durch Wurzelziehen bestimmen.',
   einschachteln: 'Quadratwurzeln näherungsweise bestimmen.', einschachtelnDez: 'Quadratwurzeln näherungsweise bestimmen.',
   wurzelProdukt: 'die Rechengesetze für Wurzeln anwenden.', wurzelQuotient: 'die Rechengesetze für Wurzeln anwenden.',
   teilweise: 'teilweise die Wurzel ziehen.',
   zusammenfassen: 'Terme durch Ausklammern vereinfachen und zusammenfassen.',
   bruchAdd: 'Brüche mit verschiedenen Nennern addieren.',
-  kubikwurzel: 'Kubikwurzeln berechnen und vereinfachen.', nteWurzel: 'n-te Wurzeln berechnen.', wuerfelVolumen: 'Berechnungen an Würfeln durchführen.'
+  kubikwurzel: 'Kubikwurzeln berechnen und vereinfachen.', nteWurzel: 'n-te Wurzeln berechnen.', wuerfelVolumen: 'Berechnungen an Würfeln durchführen.', wuerfelVolumenBasis: 'Berechnungen an Würfeln durchführen.'
 };
 
 function makeTask(gen) { const t = G[gen](); t.gen = gen; t.tr = MIT_TR.has(gen); t.can = RASTER[gen]; return t; }
@@ -788,6 +822,9 @@ function decPractice(s) {
    Test:  WC2|code|nr|tabs|minuten|antworten|übung|prüfsumme  (die Lehrerseite bewertet anhand der Antworten selbst neu)
    Übung: WU1|nr|übung|prüfsumme                               (Übungsnachweis, auch von einem anderen Gerät) */
 const SALT = 'Untersee-Hoeri';
+/* Stand der Aufgaben: bei jeder Änderung an Generatoren/SLOTS erhöhen (und ?v= in index.html/lehrer.html anpassen).
+   Steckt im Ergebnis-Code, damit die Lehrerseite merkt, wenn ein Schülergerät eine andere Fassung hatte. */
+const APPV = '20261019a';
 const sig = s => hash32(SALT + '|' + s).toString(36).toUpperCase().padStart(7, '0').slice(-5);
 function encAnswers(answers) {
   return answers.map(a => !a ? '' : a.k != null ? '#' + a.k : [a.a1 || '', a.a2 || ''].map(x => encodeURIComponent(String(x).trim()).replace(/!/g, '%21').replace(/~/g, '%7E')).join('~')).join('!');
@@ -801,7 +838,7 @@ function decAnswers(s) {
   });
 }
 function makePayload(code, nr, tabs, minutes, answers, practice) {
-  const body = ['WC2', code, nr, tabs, minutes, encAnswers(answers), encPractice(practice)].join('|');
+  const body = ['WC2.' + APPV, code, nr, tabs, minutes, encAnswers(answers), encPractice(practice)].join('|');
   return body + '|' + sig(body);
 }
 function makePracticePayload(nr, practice) {
@@ -810,9 +847,9 @@ function makePracticePayload(nr, practice) {
 }
 function parsePayload(txt) {
   const p = String(txt).trim().split('|');
-  if (p[0] === 'WC2' && p.length === 8) {
+  if (/^WC2(\.|$)/.test(p[0]) && p.length === 8) {
     const body = p.slice(0, 7).join('|');
-    return { kind: 'test', code: p[1], nr: +p[2], tabs: +p[3], minutes: +p[4], answers: decAnswers(p[5]), practice: decPractice(p[6]), valid: sig(body) === p[7] };
+    return { kind: 'test', version: p[0].split('.')[1] || '', code: p[1], nr: +p[2], tabs: +p[3], minutes: +p[4], answers: decAnswers(p[5]), practice: decPractice(p[6]), valid: sig(body) === p[7] };
   }
   if (p[0] === 'WU1' && p.length === 4) {
     const body = p.slice(0, 3).join('|');

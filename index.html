@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Wurzel-Check</title>
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=20261019a">
 </head>
 <body>
 <main>
@@ -17,7 +17,7 @@
   <div class="card" id="nrCard"></div>
   <div class="modes">
     <button class="card mode" id="goPractice"><b>🔁 Probetest üben</b>
-      Alle Aufgaben wie im Test – jedes Mal mit neuen Zahlen und in anderer Reihenfolge. Du bekommst sofort Rückmeldung, Tipps und den Lösungsweg. So oft du willst.</button>
+      Alle Aufgaben wie im Test – jedes Mal mit neuen Zahlen und in anderer Reihenfolge. Wie im Test ohne Taschenrechner. Du bekommst sofort Rückmeldung, Tipps und den Lösungsweg. So oft du willst.</button>
     <button class="card mode test" id="goTest"><b>📝 Test schreiben</b>
       Nur in der Stunde mit dem Testcode deiner Lehrkraft. Keine Rückmeldung während des Tests.</button>
   </div>
@@ -69,6 +69,7 @@
 <!-- ============ TEST ============ -->
 <section id="vTest" class="hidden">
   <div class="bar"><span class="chip test" id="tWho"></span><span class="chip" id="tCount"></span><span class="spacer"></span><button class="testbtn" id="tSubmit">Abgeben</button></div>
+  <div class="notr">✏️ Der ganze Test ist <b>ohne Taschenrechner</b>.</div>
   <div id="tWarn"></div>
   <div class="nav" id="tNav"></div>
   <div class="card" id="tCard"></div>
@@ -84,7 +85,7 @@
 </main>
 
 <script src="lib/qrcode.js"></script>
-<script src="aufgaben.js"></script>
+<script src="aufgaben.js?v=20261019a"></script>
 <script>
 "use strict";
 const VIEWS = ['vHome', 'vPractice', 'vLogin', 'vTest', 'vDone', 'vProof'];
@@ -147,7 +148,7 @@ function taskHtml(t, head, a, extra = '') {
     ${t.sketch ? `<div class="sketch">${t.sketch}</div>` : ''}
     <div>
       <div class="qtitle">${head}</div>
-      <span class="trbadge ${t.tr ? 'ja' : 'nein'}">${t.tr ? '🧮 Taschenrechner erlaubt' : '✏️ ohne Taschenrechner'}</span>
+      ${t.tr ? '<span class="trbadge ja">🧮 Zusatzaufgabe – hier ist der Taschenrechner erlaubt (kommt so nicht im Test)</span>' : ''}
       <div class="q">${t.q}</div>
       <div id="infoBox" class="infobox hidden"></div>
       ${inputHtml(t, a || {})}
