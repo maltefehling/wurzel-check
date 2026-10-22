@@ -131,7 +131,7 @@ function renderTests() {
   renderResults();
   renderCount(t);
 }
-$('selTest').onchange = () => { D.active = $('selTest').value; saveD(); $('detail').classList.add('hidden'); renderTests(); };
+$('selTest').onchange = () => { nrNotice = ''; D.active = $('selTest').value; saveD(); $('detail').classList.add('hidden'); renderTests(); };
 $('btnNew').onclick = () => {
   $('selCopy').innerHTML = '<option value="">neue Zufallsnummern erzeugen (ab der 1. Stunde der Einheit)</option>' +
     D.tests.filter(t => t.numbers && t.numbers.length).slice().reverse().map(t => `<option value="${t.code}">Nummern übernehmen von: ${esc(t.label || t.code)} (${t.numbers.length})</option>`).join('');
@@ -140,7 +140,7 @@ $('btnNew').onclick = () => {
 function renderNrBox(t) {
   if (!t) { $('nrBox').innerHTML = ''; return; }
   $('nrBox').innerHTML = t.numbers && t.numbers.length
-    ? `<details style="margin-top:10px" ${pendingNames ? 'open' : ''}><summary><b>Wurzel-Check-Nummern dieser Klasse (${t.numbers.length})</b></summary>
+    ? `${nrNotice ? `<div class="reminder" style="margin-top:10px">${nrNotice} <button id="nrNoticeOk" style="margin-left:6px">Verstanden</button></div>` : ''}<details style="margin-top:10px" ${pendingNames || nrNotice ? 'open' : ''}><summary><b>Wurzel-Check-Nummern dieser Klasse (${t.numbers.length})</b></summary>
         <div class="nrgrid">${t.numbers.map(n => `<span>${n}</span>`).join('')}</div>
         <div class="row" style="margin-top:10px"><label class="filebtn"><input type="file" id="inCsv" accept=".csv,.txt,text/csv,text/plain" hidden>📂 Klassenliste (CSV) laden</label><span class="muted"><small>z. B. „Name;Vorname“ aus der Schulverwaltung – oder unten von Hand einfügen</small></span></div>
         <label for="inNames">Klassenliste – ein Name pro Zeile <span class="muted" style="font-weight:400">(wird <b>nicht gespeichert</b> und nirgends hingeschickt)</span></label>
@@ -150,6 +150,7 @@ function renderNrBox(t) {
     : `<div class="row" style="margin-top:10px"><label class="filebtn primaryfile"><input type="file" id="inCsv" accept=".csv,.txt,text/csv,text/plain" hidden>📂 Klassenliste (CSV) laden</label><span class="muted">oder</span><label for="inCount" style="margin:0">Schüleranzahl:</label><input id="inCount" class="field" style="width:4em" inputmode="numeric" value="28"><button id="btnMakeNr">Nummern erzeugen</button></div>
        <p class="muted" style="margin:.3rem 0"><small>Mit der CSV werden passend zur Klassengröße Nummern erzeugt; die Namen werden <b>nicht gespeichert</b>.</small></p>`;
   if (pendingNames && $('inNames')) { $('inNames').value = pendingNames; pendingNames = null; }
+  if ($('nrNoticeOk')) $('nrNoticeOk').onclick = () => { const v = $('inNames') ? $('inNames').value : ''; nrNotice = ''; pendingNames = v || null; renderTests(); };
   if ($('inCsv')) $('inCsv').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if (f) loadCsv(f, t); };
   if ($('btnMakeNr')) $('btnMakeNr').onclick = () => { const n = Math.max(1, Math.min(60, parseInt($('inCount').value, 10) || 0)); t.numbers = randomNrs(n); saveD(); renderTests(); };
   if ($('btnMoreNr')) $('btnMoreNr').onclick = () => { const pool = ALL_NRS.filter(n => !t.numbers.includes(n)); t.numbers = t.numbers.concat(pool.sort(() => Math.random() - .5).slice(0, 5)).sort((a, b) => a - b); saveD(); renderTests(); };
@@ -158,7 +159,27 @@ function renderNrBox(t) {
 }
 /* Klassenliste aus einer CSV-Datei lesen – nur im Arbeitsspeicher, nichts wird gespeichert oder verschickt.
    Erkennt Semikolon/Tab/Komma, Kopfzeile „Name;Vorname“ (auch „Vorname;Name“), UTF-8 oder Windows-Zeichensatz (Excel). */
-let pendingNames = null;
+let pendingNames = null, nrNotice = '';
+/* Nummernzahl an die Namensliste anpassen. Nummern mit Ergebnis oder Übungsdaten werden nie entfernt. */
+function adjustNumbers(t, n) {
+  const before = t.numbers ? t.numbers.length : 0;
+  if (!before) { t.numbers = randomNrs(n); saveD(); return ''; }
+  if (n === before) return '';
+  if (n > before) {
+    const pool = ALL_NRS.filter(x => !t.numbers.includes(x)).sort(() => Math.random() - .5);
+    if (n - before > pool.length) { toast('So viele Nummern gibt es nicht (höchstens 90).', true); return ''; }
+    t.numbers = t.numbers.concat(pool.slice(0, n - before)).sort((a, b) => a - b);
+  } else {
+    const used = x => t.results[x] || (t.practice && t.practice[x]);
+    let remove = before - n;
+    const free = t.numbers.filter(x => !used(x)).sort(() => Math.random() - .5).slice(0, remove);
+    t.numbers = t.numbers.filter(x => !free.includes(x));
+    remove -= free.length;
+    if (remove > 0) { saveD(); return `⚠️ Die Liste hat <b>${n}</b> Namen, es gab <b>${before}</b> Nummern. ${free.length} Nummern wurden entfernt; ${remove} weitere konnten nicht entfernt werden, weil dazu schon Ergebnisse oder Übungsdaten vorliegen. Bitte prüfen, ob die Klassenliste vollständig ist.`; }
+  }
+  saveD();
+  return `⚠️ Die Liste hat <b>${n}</b> Namen, es gab aber <b>${before}</b> Nummern. Die Nummern wurden auf <b>${t.numbers.length}</b> ${n > before ? 'ergänzt' : 'gekürzt'}. Falls schon Kärtchen ausgeteilt wurden: neu drucken und neu austeilen, denn die Zuordnung Name → Nummer kann sich verschoben haben.`;
+}
 async function loadCsv(file, t) {
   const buf = await file.arrayBuffer();
   let txt;
@@ -179,22 +200,20 @@ async function loadCsv(file, t) {
     return b ? `${a}, ${b}` : a;
   });
   if (!names.length) return toast('In der Datei wurden keine Namen gefunden.', true);
-  if (!t.numbers || !t.numbers.length) { t.numbers = randomNrs(names.length); saveD(); }
+  nrNotice = adjustNumbers(t, names.length);
   pendingNames = names.join('\n');
   renderTests();
-  toast(`${names.length} Namen geladen – nur für den Druck, nicht gespeichert.`);
+  if (nrNotice) { toast(`${names.length} Namen geladen – Anzahl der Nummern angepasst, siehe Hinweis!`, true); setTimeout(() => { const n = document.querySelector('#nrBox .reminder'); if (n) n.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 100); }
+  else toast(`${names.length} Namen geladen – nur für den Druck, nicht gespeichert.`);
 }
 /* Namen nur im Arbeitsspeicher: sortieren, der Größe nach Nummern zuordnen, drucken, Feld leeren. Nichts wird gespeichert. */
 function printWithNames(t) {
   const names = $('inNames').value.split(/\r?\n/).map(x => x.replace(/\s+/g, ' ').replace(/\s*;\s*/g, ', ').trim()).filter(Boolean)
     .sort((a, b) => a.localeCompare(b, 'de', { sensitivity: 'base' }));
   if (!names.length) return toast('Bitte zuerst die Klassenliste einfügen.', true);
-  if (names.length > t.numbers.length) {
-    const pool = ALL_NRS.filter(n => !t.numbers.includes(n)).sort(() => Math.random() - .5);
-    const add = names.length - t.numbers.length;
-    if (add > pool.length) return toast('So viele Nummern gibt es nicht (höchstens 90).', true);
-    if (!confirm(`Die Liste hat ${names.length} Namen, es gibt aber nur ${t.numbers.length} Nummern. ${add} Nummern ergänzen?`)) return;
-    t.numbers = t.numbers.concat(pool.slice(0, add)).sort((a, b) => a - b); saveD(); renderTests();
+  if (names.length !== t.numbers.length) {
+    nrNotice = adjustNumbers(t, names.length); renderTests();
+    if (nrNotice) toast('Nummern an die Namensliste angepasst – siehe Hinweis.', true);
   }
   const nrs = t.numbers.slice().sort((a, b) => a - b), url = new URL('./', location.href).href;
   const pairs = nrs.map((n, i) => [n, names[i] || '']);
