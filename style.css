@@ -128,11 +128,9 @@ details.card summary{cursor:pointer}
   body{background:#fff}
   main>*:not(#printArea){display:none!important}
   #printArea{display:block}
-  .slips{width:100%;border-collapse:collapse;table-layout:fixed;break-after:page;page-break-after:always}
-  .slips tr{break-inside:avoid;page-break-inside:avoid}
-  .slip{border:1px dashed #999;height:35mm;padding:1.5mm 2mm;text-align:center;vertical-align:middle;font-size:9pt;line-height:1.2;overflow:hidden;break-inside:avoid;page-break-inside:avoid}
+  .slippage{display:block;overflow:hidden;break-after:page;page-break-after:always;break-inside:avoid;page-break-inside:avoid}
+  .slip{float:left;box-sizing:border-box;width:33.33%;height:35mm;border:1px dashed #999;margin:0 0 -1px 0;padding:1.5mm 2mm;text-align:center;font-size:9pt;line-height:1.2;overflow:hidden;display:flex;flex-direction:column;justify-content:center;break-inside:avoid;page-break-inside:avoid}
   .slip .sliplbl{display:block;color:#555}
-  .slip.empty{border:none}
   .slip small{display:block;font-size:6.5pt;color:#555}
   .slip b{display:block;font-size:22pt;letter-spacing:.1em;margin:1mm 0}
   .slip .slipname{display:block;font-size:11pt;font-weight:700;margin-bottom:1mm}
