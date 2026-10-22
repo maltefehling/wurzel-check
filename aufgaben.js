@@ -696,6 +696,33 @@ const RASTER = {
   kubikwurzel: 'Kubikwurzeln berechnen und vereinfachen.', nteWurzel: 'n-te Wurzeln berechnen.', wuerfelVolumen: 'Berechnungen an Würfeln durchführen.', wuerfelVolumenBasis: 'Berechnungen an Würfeln durchführen.'
 };
 
+/* Buchaufgaben je „Ich kann …“-Zeile – wortgleich mit dem Kompetenzraster (werkzeug_kompetenzraster/build.js).
+   ★ = Basis S. 27, ★★/★★★ = Weiterdenken S. 28–29 */
+const BUCH = {
+  'Produkte als Potenz angeben und berechnen.': [['★', 'S. 27, Nr. 1 a, c']],
+  'Potenzwerte berechnen.': [['★', 'S. 27, Nr. 1 b, e; Nr. 2'], ['★★', 'S. 28, Nr. 15, 16, 17']],
+  'Zahlen in der Potenzschreibweise angeben.': [['★', 'S. 27, Nr. 1 d, f']],
+  'Zahlen ohne Potenzen angeben.': [['★', 'S. 27, Nr. 3 a']],
+  'Zahlen in technischer und wissenschaftlicher Schreibweise angeben.': [['★', 'S. 27, Nr. 3 b–e; Nr. 4, 5'], ['★★', 'S. 28, Nr. 18']],
+  'die Taschenrechneranzeige interpretieren.': [],
+  'Quadratwurzeln bestimmen.': [['★', 'S. 27, Nr. 6, 7']],
+  'Seiten- und Kantenlängen von Quadraten und Würfeln durch Wurzelziehen bestimmen.': [['★', 'S. 27, Nr. 14'], ['★★', 'S. 28, Nr. 20']],
+  'Quadratwurzeln näherungsweise bestimmen.': [['★', 'S. 27, Nr. 8'], ['★★', 'S. 28, Nr. 19']],
+  'die Rechengesetze für Wurzeln anwenden.': [['★', 'S. 27, Nr. 9, 10'], ['★★', 'S. 29, Nr. 23, 24'], ['★★★', 'S. 29, Nr. 28, 30']],
+  'teilweise die Wurzel ziehen.': [['★', 'S. 27, Nr. 11']],
+  'Terme durch Ausklammern vereinfachen und zusammenfassen.': [['★', 'S. 27, Nr. 12']],
+  'unter Beachtung aller Regeln Terme mit Quadratwurzeln vereinfachen.': [['★★', 'S. 29, Nr. 22'], ['★★★', 'S. 29, Nr. 25, 29']],
+  'Kubikwurzeln berechnen und vereinfachen.': [['★', 'S. 27, Nr. 13 a–c'], ['★★', 'S. 29, Nr. 26 a']],
+  'n-te Wurzeln berechnen.': [['★', 'S. 27, Nr. 13 d–f'], ['★★', 'S. 29, Nr. 26 b'], ['★★★', 'S. 29, Nr. 27']],
+  'Berechnungen an Würfeln durchführen.': [['★', 'S. 27, Nr. 14'], ['★★★', 'S. 28, Nr. 21']]
+};
+/* Die schweren Aufgaben (★★★) des Kompetenzrasters – für sehr gute Testergebnisse */
+const SCHWER = [
+  ['S. 20–21 Wurzeln multiplizieren und dividieren', 'S. 29, Nr. 28, 30'],
+  ['S. 22–23 Rechnen mit Quadratwurzeln (b)', 'S. 29, Nr. 25, 29'],
+  ['S. 24–25 Kubikwurzeln und n-te Wurzeln', 'S. 29, Nr. 27;  S. 28, Nr. 21']
+];
+
 function makeTask(gen) { const t = G[gen](); t.gen = gen; t.tr = MIT_TR.has(gen); t.can = RASTER[gen]; return t; }
 
 /* Rückmeldung in der Sprache des Kompetenzrasters: nach Abschnitten geordnet, je Aufgabe der „Ich kann …“-Satz */

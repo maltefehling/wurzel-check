@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Wurzel-Check</title>
-<link rel="stylesheet" href="style.css?v=20261019c">
+<link rel="stylesheet" href="style.css?v=20261022a">
 </head>
 <body>
 <main>
@@ -86,7 +86,7 @@
 </main>
 
 <script src="lib/qrcode.js"></script>
-<script src="aufgaben.js?v=20261019a"></script>
+<script src="aufgaben.js?v=20261022a"></script>
 <script>
 "use strict";
 const VIEWS = ['vHome', 'vPractice', 'vLogin', 'vTest', 'vDone', 'vProof'];
@@ -430,6 +430,96 @@ document.addEventListener('visibilitychange', () => {
   else if (T.st.tabs > 0) $('tWarn').innerHTML = `<div class="warnbanner">⚠️ Du hast den Test verlassen (${T.st.tabs}×). Das wird deiner Lehrkraft angezeigt.</div>`;
 });
 
+/* ---------- Übersicht für die Klassenarbeit (nach dem Test) ---------- */
+function buildOverview(T, grades, pts, when) {
+  const note = noteFor(pts), d = new Date(when);
+  const datum = d.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+  // je „Ich kann …“-Zeile nur einmal, in der Reihenfolge des Kompetenzrasters
+  const seen = new Set(), areas = [];
+  T.tasks.map((t, i) => [t, grades[i]]).filter(([, g]) => g !== 2).sort((a, b) => a[0].slot - b[0].slot).forEach(([t, g]) => {
+    const key = t.can; if (seen.has(key)) return; seen.add(key);
+    const rev = !!SLOTS[t.slot].review;
+    const buch = rev ? [] : (BUCH[t.can] || []).filter(([st]) => note <= 2.5 ? true : st === '★');
+    areas.push({ area: SLOTS[t.slot].area, can: t.can, half: g === 1, rev, buch });
+  });
+  let level, text;
+  if (note <= 1.5) {
+    level = 'sehr gut';
+    text = 'Sehr gut – deine Grundlagen sitzen! Der Test prüft aber nur die Grundlagen. In der Klassenarbeit kommen auch schwierigere Aufgaben. Rechne deshalb zur Vorbereitung die schweren Aufgaben (★★★) aus dem Kompetenzraster.';
+  } else if (note <= 2.5) {
+    level = 'gut';
+    text = 'Gut – die meisten Grundlagen sitzen. Der Test prüft nur die Grundlagen; in der Klassenarbeit kommen auch schwierigere Aufgaben. Schau dir zuerst die Bereiche unten an, dann die ★★-Aufgaben aus dem Kompetenzraster.';
+  } else {
+    level = 'noch unsicher';
+    text = 'Bei den Grundlagen bist du noch nicht sicher. Der Test prüft nur die Grundlagen – und auf ihnen baut die Klassenarbeit auf. Übe deshalb zuerst die Bereiche unten (★-Aufgaben aus dem Kompetenzraster) und mach danach noch einmal Probetests im Wurzel-Check.';
+  }
+  return { nr: T.nr, datum, note, pts, max: SLOTS.length, level, text, areas, schwer: note <= 1.5 ? SCHWER : [] };
+}
+function overviewHtml(o) {
+  const areaRow = a => `<div class="ovrow ${a.rev ? 'rev' : ''}"><div class="ovarea">${a.rev ? '🔁 ' : ''}${a.area}${a.rev ? ' <span class="muted" style="font-weight:400">(nicht im Kompetenzraster)</span>' : ''}</div>
+    <div>${a.half ? '½' : '✗'} Ich kann ${a.can}${a.half ? ' <span class="muted">(fast – nur noch nicht ganz vereinfacht)</span>' : ''}</div>
+    ${a.rev ? '<div class="muted"><small>Im Heft wiederholen oder im Wurzel-Check „Gezielt üben → Brüche addieren“.</small></div>' : a.buch.length ? `<div class="ovbuch">${a.buch.map(([st, txt]) => `<span><b>${st}</b> ${txt}</span>`).join('')}</div>` : '<div class="muted"><small>Im Wurzel-Check gezielt üben.</small></div>'}</div>`;
+  return `<div class="overview" id="overview">
+    <div class="ovhead"><div><b>Meine Übersicht zur Klassenarbeit</b><br><span class="muted">Potenzen und Wurzeln · Wurzel-Check-Test vom ${o.datum}</span></div><div class="ovnote">Note <b>${fmtNote(o.note)}</b><br><small>${fmtPts(o.pts)} von ${o.max} Punkten · Nr. ${o.nr}</small></div></div>
+    <p class="ovtext">${o.text}</p>
+    ${o.areas.length ? `<h3>Das solltest du dir zur Klassenarbeit noch einmal anschauen</h3>${o.areas.map(areaRow).join('')}` : '<h3>🎉 Im Test war alles richtig.</h3>'}
+    ${o.schwer.length ? `<h3>Für dich als Nächstes: die schweren Aufgaben ★★★</h3>${o.schwer.map(([a, t]) => `<div class="ovrow"><div class="ovarea">${a}</div><div class="ovbuch"><span><b>★★★</b> ${t}</span></div></div>`).join('')}
+      <div class="ovrow"><div class="ovarea">Nicht im Test, aber in der Klassenarbeit</div><div>Ich kann unter Beachtung aller Regeln Terme mit Quadratwurzeln vereinfachen.</div><div class="ovbuch"><span><b>★★</b> S. 29, Nr. 22</span></div></div>` : ''}
+  </div>`;
+}
+/* Übersicht als Bild (PNG) zeichnen – ohne Zusatzbibliothek, direkt auf ein Canvas */
+function overviewCanvas(o) {
+  const W = 1080, PAD = 56, S = 2, c = document.createElement('canvas'), x = c.getContext('2d');
+  const font = (w, sz) => `${w} ${sz}px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif`;
+  const items = [];   // erst messen, dann zeichnen
+  const add = (txt, sz, w = '400', col = '#1d2b36', gap = 8, indent = 0) => items.push({ txt, sz, w, col, gap, indent });
+  add('Meine Übersicht zur Klassenarbeit', 40, '800', '#1f4e79', 4);
+  add(`Potenzen und Wurzeln · Wurzel-Check-Test vom ${o.datum}`, 24, '400', '#5b6b78', 22);
+  add(`Note ${fmtNote(o.note)}`, 56, '800', '#1f6fa8', 2);
+  add(`${fmtPts(o.pts)} von ${o.max} Punkten · Nr. ${o.nr}`, 24, '400', '#5b6b78', 24);
+  add(o.text, 26, '400', '#1d2b36', 26);
+  if (o.areas.length) {
+    add('Das solltest du dir zur Klassenarbeit noch einmal anschauen:', 28, '700', '#1f4e79', 12);
+    o.areas.forEach(a => {
+      add(`${a.area}${a.rev ? ' (nicht im Kompetenzraster)' : ''}`, 22, '700', a.rev ? '#0f766e' : '#1f4e79', 2, 0);
+      add(`${a.half ? '½' : '✗'}  Ich kann ${a.can}`, 25, '400', '#1d2b36', 4, 24);
+      if (a.rev) add('Im Heft wiederholen oder im Wurzel-Check „Brüche addieren“ üben.', 22, '400', '#5b6b78', 16, 24);
+      else if (a.buch.length) add(a.buch.map(([st, t]) => `${st} ${t}`).join('     '), 23, '400', '#2e7d32', 16, 24);
+      else add('Im Wurzel-Check gezielt üben.', 22, '400', '#5b6b78', 16, 24);
+    });
+  } else add('Im Test war alles richtig. 🎉', 28, '700', '#2e8b57', 16);
+  if (o.schwer.length) {
+    add('Für dich als Nächstes: die schweren Aufgaben ★★★', 28, '700', '#1f4e79', 12);
+    o.schwer.forEach(([a, t]) => { add(a, 22, '700', '#1f4e79', 2); add(`★★★ ${t}`, 23, '400', '#2e7d32', 14, 24); });
+    add('Nicht im Test, aber in der Klassenarbeit: Terme mit allen Regeln vereinfachen – ★★ S. 29, Nr. 22', 23, '400', '#1d2b36', 14);
+  }
+  add('Der Test prüft nur die Grundlagen. Die Buchaufgaben stehen auch in deinem Kompetenzraster.', 20, '400', '#5b6b78', 0);
+  // Zeilen umbrechen
+  const lines = [];
+  items.forEach(it => {
+    x.font = font(it.w, it.sz); const maxW = W - 2 * PAD - it.indent;
+    let line = '';
+    it.txt.split(' ').forEach(word => { const t = line ? line + ' ' + word : word; if (x.measureText(t).width > maxW && line) { lines.push({ ...it, txt: line, gap: 0 }); line = word; } else line = t; });
+    lines.push({ ...it, txt: line });
+  });
+  const H = PAD * 2 + lines.reduce((h, l) => h + l.sz * 1.3 + l.gap, 0);
+  c.width = W * S; c.height = Math.ceil(H) * S; x.scale(S, S);
+  x.fillStyle = '#ffffff'; x.fillRect(0, 0, W, H);
+  x.fillStyle = '#1f4e79'; x.fillRect(0, 0, W, 10);
+  let y = PAD;
+  lines.forEach(l => { x.font = font(l.w, l.sz); x.fillStyle = l.col; x.textBaseline = 'top'; x.fillText(l.txt, PAD + l.indent, y); y += l.sz * 1.3 + l.gap; });
+  return c;
+}
+async function saveOverview(o) {
+  const c = overviewCanvas(o), name = `wurzel-check-uebersicht-${today()}.png`;
+  const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+  try {
+    const file = new File([blob], name, { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'Meine Übersicht zur Klassenarbeit' }); return; }   // iPad: „Bild sichern“ → Fotos
+  } catch (e) { if (e && e.name === 'AbortError') return; }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
+}
+
 function renderDone() {
   const st = T.st, grades = T.tasks.map((t, i) => grade(t, st.answers[i]));
   // Liste für die Startseite nur einmal pro Test anlegen (beim erneuten Öffnen des Ergebnisses nicht zurücksetzen)
@@ -442,7 +532,7 @@ function renderDone() {
   let qrHtml = '';
   try { qrHtml = qrSvg(payload); }
   catch (e) { qrHtml = '<p class="err">QR-Code konnte nicht erzeugt werden – nutze den Code darunter.</p>'; }
-  const sym = g => g === 2 ? '<span class="g2">✓</span>' : g === 1 ? '<span class="g1">½</span>' : '<span class="g0">✗</span>';
+  const ov = buildOverview(T, grades, pts, st.end || Date.now());
   $('doneCard').innerHTML = `
     <h2>✅ Test abgegeben · Nr. ${T.nr}</h2>
     <div class="score">${fmtPts(pts)} / ${SLOTS.length} Punkte</div>
@@ -451,12 +541,16 @@ function renderDone() {
     <div class="qrbox">${qrHtml}</div>
     <p class="muted" style="margin:.2rem 0">Falls der Scan nicht klappt, diesen Code ansagen:</p>
     <div class="shortcode">${short}</div>
-    <h2 style="margin-top:14px">Dein Stand im Kompetenzraster</h2>
+    ${overviewHtml(ov)}
+    <div class="btns" style="justify-content:center"><button class="primary" id="dSave">📥 Übersicht als Bild speichern</button></div>
+    <p class="muted" style="margin:.2rem 0 0"><small>Oder einfach einen Screenshot machen (obere Taste + Lauter-Taste gleichzeitig).</small></p>
+    <h2 style="margin-top:18px">Alle Aufgaben im Überblick</h2>
     ${rasterReport(T.tasks, grades)}
     <p class="muted"><small>½ = Wert richtig, aber nicht vollständig vereinfacht bzw. nicht in der verlangten Schreibweise.</small></p>
     <div class="btns" style="justify-content:center"><button id="dHome">← Startseite</button><button class="danger" id="dWipe">Fertig – Daten von diesem Gerät löschen</button></div>
     <div id="dWipeAsk"></div>`;
   $('dHome').onclick = renderHome;
+  $('dSave').onclick = () => saveOverview(ov);
   $('dWipe').onclick = () => {
     $('dWipeAsk').innerHTML = `<div class="fb warn" style="margin-top:12px">Hat deine Lehrkraft deinen QR-Code schon gescannt? Danach ist alles weg: Test, Nummer und Übungsstatistik.
       <div class="btns" style="justify-content:center"><button class="danger" id="dWipeYes">Ja, gescannt – jetzt löschen</button><button id="dWipeNo">Nein, noch nicht</button></div></div>`;
