@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Wurzel-Check</title>
-<link rel="stylesheet" href="style.css?v=20261022f">
+<link rel="stylesheet" href="style.css?v=20261023a">
 </head>
 <body>
 <main>
@@ -471,6 +471,21 @@ function overviewHtml(o) {
     ${o.areas.length ? `<h3>Diese Punkte im Kompetenzraster solltest du dir noch einmal anschauen</h3>${o.areas.map(areaRow).join('')}` : '<h3>🎉 Im Test war alles richtig.</h3>'}
   </div>`;
 }
+/* Nach dem Test: jede falsche bzw. halbe Aufgabe mit Aufgabe, eigener Eingabe und richtiger Lösung (Wunsch der Schüler) */
+function mistakesHtml(tasks, grades, answers) {
+  const wrong = tasks.map((t, i) => [t, i]).filter(([, i]) => grades[i] !== 2);
+  if (!wrong.length) return '';
+  return `<div class="mistakes"><h2 style="margin-top:0">Deine Fehler im Detail</h2>
+    <p class="muted" style="margin-top:0">Schau dir an, was du eingegeben hast und was richtig gewesen wäre. Tipp: Rechne die Aufgabe danach noch einmal selbst.</p>
+    ${wrong.map(([t, i]) => `<div class="mistake ${SLOTS[t.slot].review ? 'rev' : ''}">
+      <div class="qtitle">Aufgabe ${i + 1} · ${SLOTS[t.slot].area.replace(/^S\.\s*\d+\s*[–-]\s*\d+\s*/, '')} · ${grades[i] === 1 ? '<span class="g1">½ Punkt</span>' : '<span class="g0">0 Punkte</span>'}</div>
+      <div class="mq">${t.q}</div>
+      <div class="mrow"><span class="mlab">Deine Eingabe:</span> <span class="mbad">${grades[i] === -1 || !answers[i] ? 'keine Antwort' : answerText(t, answers[i])}</span></div>
+      <div class="mrow"><span class="mlab">Richtig wäre:</span> <span class="mgood">${correctText(t)}</span></div>
+      ${grades[i] === 1 ? '<div class="muted"><small>Der Wert stimmt, aber die Form noch nicht (nicht ganz vereinfacht bzw. nicht in der verlangten Schreibweise).</small></div>' : ''}
+      <details class="msol"><summary>Lösungsweg anzeigen</summary><ol class="sol">${t.sol.map(x => `<li>${x}</li>`).join('')}</ol></details>
+    </div>`).join('')}</div>`;
+}
 /* Übersicht als Bild (PNG) zeichnen – ohne Zusatzbibliothek, direkt auf ein Canvas */
 function overviewCanvas(o) {
   const W = 1080, PAD = 56, S = 2, c = document.createElement('canvas'), x = c.getContext('2d');
@@ -540,6 +555,7 @@ function renderDone() {
     ${overviewHtml(ov)}
     <div class="btns" style="justify-content:center"><button class="primary" id="dSave">📥 Übersicht als Bild speichern</button></div>
     <p class="muted" style="margin:.2rem 0 0"><small>Oder einfach einen Screenshot machen (obere Taste + Lauter-Taste gleichzeitig).</small></p>
+    ${mistakesHtml(T.tasks, grades, st.answers)}
     <h2 style="margin-top:18px">Alle Aufgaben im Überblick</h2>
     ${rasterReport(T.tasks, grades)}
     <p class="muted"><small>½ = Wert richtig, aber nicht vollständig vereinfacht bzw. nicht in der verlangten Schreibweise.</small></p>

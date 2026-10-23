@@ -209,3 +209,17 @@ button.mini{padding:.3rem .9rem;font-size:.95rem;min-height:40px}
 .ovnext{font-size:1.05rem;font-weight:700;margin:.4rem 0 .8rem}
 .filebtn{display:inline-flex;align-items:center;min-height:44px;padding:.55rem .9rem;border:1px solid var(--line);border-radius:10px;background:#fff;cursor:pointer;font-weight:600}
 .filebtn.primaryfile{background:var(--sea);border-color:var(--sea);color:#fff}
+
+/* Nach dem Test: Fehler im Detail */
+.mistakes{text-align:left;margin:18px 0 6px}
+.mistake{border:1px solid var(--line);border-left:5px solid var(--bad);border-radius:10px;padding:10px 14px;margin:10px 0;background:#fff}
+.mistake.rev{border-left-color:#14b8a6;background:#f0fdfa}
+.mistake .mq{margin:.3rem 0 .5rem;font-size:1.05rem}
+.mistake .mq .big{font-size:1.25rem}
+.mistake .mq .begriff{color:inherit;text-decoration:none;font-weight:inherit;padding:0;cursor:default}
+.mistake .mq .begriff::after{content:""}
+.mrow{margin:.15rem 0}
+.mlab{color:var(--muted);display:inline-block;min-width:7.5em}
+.mbad{color:var(--bad);font-weight:700}
+.mgood{color:var(--ok);font-weight:700}
+.msol summary{cursor:pointer;color:var(--sea);margin-top:.3rem;min-height:32px}
