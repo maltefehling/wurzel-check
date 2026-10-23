@@ -90,7 +90,10 @@
 <script>
 "use strict";
 const VIEWS = ['vHome', 'vPractice', 'vLogin', 'vTest', 'vDone', 'vProof'];
-function show(v) { VIEWS.forEach(x => $(x).classList.toggle('hidden', x !== v)); window.scrollTo(0, 0); if (typeof keepAwake === 'function') keepAwake(v === 'vTest' || v === 'vDone'); }
+function show(v) {
+  if (v !== 'vPractice') $('pCard').innerHTML = '';   // keine unsichtbaren Eingabefelder zurücklassen
+  if (v !== 'vTest') $('tCard').innerHTML = '';
+  VIEWS.forEach(x => $(x).classList.toggle('hidden', x !== v)); window.scrollTo(0, 0); if (typeof keepAwake === 'function') keepAwake(v === 'vTest' || v === 'vDone'); }
 const store = {
   get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
@@ -164,7 +167,10 @@ function wireBegriffe(root) {
     box.classList.toggle('hidden', same);
   });
 }
-const readInputs = () => ({ a1: $('a1') ? $('a1').value : '', a2: $('a2') ? $('a2').value : '' });
+/* Eingaben IMMER aus der jeweiligen Karte lesen: Übung (pCard) und Test (tCard) erzeugen Felder mit denselben ids.
+   Früher las der Test per $('a1') das unsichtbare Feld einer zuvor geöffneten Übungsaufgabe (Fehler 23.10.2026). */
+const inField = (root, id) => root.querySelector('#' + id);
+const readInputs = root => ({ a1: inField(root, 'a1') ? inField(root, 'a1').value : '', a2: inField(root, 'a2') ? inField(root, 'a2').value : '' });
 
 /* ================= STARTSEITE ================= */
 function renderHome() {
@@ -252,13 +258,14 @@ function renderPractice() {
     $('pCheck').onclick = () => practiceCheck();
   }
   else {
-    $('pCheck').onclick = () => { P.a = readInputs(); practiceCheck(); };
+    $('pCheck').onclick = () => { P.a = readInputs($('pCard')); practiceCheck(); };
     $('pCard').querySelectorAll('input').forEach(inp => inp.addEventListener('keydown', e => {
       if (e.key !== 'Enter') return;
-      if (inp.id === 'a1' && $('a2') && $('a2').value.trim() === '') { e.preventDefault(); $('a2').focus(); return; }   // erst ins zweite Feld
-      P.a = readInputs(); practiceCheck();
+      const a2 = inField($('pCard'), 'a2');
+      if (inp.id === 'a1' && a2 && a2.value.trim() === '') { e.preventDefault(); a2.focus(); return; }   // erst ins zweite Feld
+      P.a = readInputs($('pCard')); practiceCheck();
     }));
-    setTimeout(() => $('a1') && $('a1').focus({ preventScroll: true }), 50);
+    setTimeout(() => { const a1 = inField($('pCard'), 'a1'); if (a1) a1.focus({ preventScroll: true }); }, 50);
   }
   $('pHint').onclick = () => { if (!P.done) $('fb').innerHTML = `<div class="fb hint">💡 ${t.hint}</div>`; };
 }
@@ -380,7 +387,7 @@ function answered(a) { return a && (a.k != null || String(a.a1 || '').trim() !==
 function captureCurrent() {
   if (!T || T.st.submitted) return;
   const t = T.tasks[T.st.cur];
-  if (t.type !== 'mc' && $('a1')) { T.st.answers[T.st.cur] = readInputs(); saveT(); }
+  if (t.type !== 'mc' && inField($('tCard'), 'a1')) { T.st.answers[T.st.cur] = readInputs($('tCard')); saveT(); }
 }
 function renderTest() {
   const st = T.st, t = T.tasks[st.cur];
