@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Wurzel-Check</title>
-<link rel="stylesheet" href="style.css?v=20261102a">
+<link rel="stylesheet" href="style.css?v=20261023a">
 </head>
 <body>
 <main>
@@ -18,7 +18,7 @@
   <div class="card" id="nrCard"></div>
   <div class="modes">
     <button class="card mode" id="goPractice"><b>🔁 Probetest üben</b>
-      Alle Aufgaben wie im Test – jedes Mal mit neuen Zahlen und in anderer Reihenfolge. Wie im Test ohne Taschenrechner. Schreibe jede Aufgabe mit Rechnung und Ergebnis ins Heft. Du bekommst sofort Rückmeldung, Tipps und den Lösungsweg. So oft du willst.</button>
+      Alle Aufgaben wie im Test – jedes Mal mit neuen Zahlen und in anderer Reihenfolge. Wie im Test ohne Taschenrechner. Du bekommst sofort Rückmeldung, Tipps und den Lösungsweg. So oft du willst.</button>
     <button class="card mode test" id="goTest"><b>📝 Test schreiben</b>
       Nur in der Stunde mit dem Testcode deiner Lehrkraft. Keine Rückmeldung während des Tests.</button>
   </div>
@@ -49,7 +49,6 @@
 <!-- ============ ÜBUNG ============ -->
 <section id="vPractice" class="hidden">
   <div class="bar"><span class="chip" id="pProgress"></span><span class="chip" id="pScore"></span><span class="spacer"></span><button id="pHome">← Startseite</button></div>
-  <div class="heft">✎ <b>Ins Heft:</b> Schreibe jede Aufgabe ab, dazu deinen Rechenweg und das Ergebnis – z. B. <span class="nowrap">√3 · √12 = √36 = 6</span>. Erst dann tippst du das Ergebnis hier ein.</div>
   <div class="card" id="pCard"></div>
 </section>
 
@@ -72,7 +71,6 @@
 <section id="vTest" class="hidden">
   <div class="bar"><span class="chip test" id="tWho"></span><span class="chip" id="tCount"></span><span class="spacer"></span><button class="testbtn" id="tSubmit">Abgeben</button></div>
   <div class="notr">✏️ Der ganze Test ist <b>ohne Taschenrechner</b>.</div>
-  <div class="heft">✎ <b>Aufs Blatt:</b> Schreibe jede Aufgabe ab, dazu deinen Rechenweg und das Ergebnis – z. B. <span class="nowrap">√3 · √12 = √36 = 6</span>. Erst dann tippst du das Ergebnis hier ein.</div>
   <div id="tWarn"></div>
   <div class="nav" id="tNav"></div>
   <div class="card" id="tCard"></div>

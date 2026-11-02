@@ -223,5 +223,3 @@ button.mini{padding:.3rem .9rem;font-size:.95rem;min-height:40px}
 .mbad{color:var(--bad);font-weight:700}
 .mgood{color:var(--ok);font-weight:700}
 .msol summary{cursor:pointer;color:var(--sea);margin-top:.3rem;min-height:32px}
-.heft{background:#fff;border:1.5px solid #1f4e79;color:#1f2937;border-radius:10px;padding:8px 12px;margin-bottom:10px;font-size:1.05rem}
-.nowrap{white-space:nowrap}
