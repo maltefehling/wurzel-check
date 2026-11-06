@@ -223,3 +223,11 @@ button.mini{padding:.3rem .9rem;font-size:.95rem;min-height:40px}
 .mbad{color:var(--bad);font-weight:700}
 .mgood{color:var(--ok);font-weight:700}
 .msol summary{cursor:pointer;color:var(--sea);margin-top:.3rem;min-height:32px}
+
+/* PDF der Schüler-Übersicht (6.11.2026) */
+@media print{
+  .printOv{font-size:11pt}
+  .printOv .overview,.printOv .mistakes{box-shadow:none;border:1px solid #ccc;margin:0 0 8mm}
+  .printOv .mistake,.printOv .ovrow{break-inside:avoid;page-break-inside:avoid}
+  .printOv details>summary{display:none}
+}
